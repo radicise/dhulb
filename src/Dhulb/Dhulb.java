@@ -7,13 +7,11 @@ import java.io.PushbackInputStream;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.TreeMap;
-
-
 class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) (or some other names like those)
 	public static PrintStream text = System.out;
 	public static PrintStream rwdata = System.out;//TODO different stream and then concatenate
 	public static PushbackInputStream in = new PushbackInputStream(System.in, 16);
-	public static int mach = 0;//0: 8086; 1: 80386, 2: AMD64
+	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode, 2: AMD64 64-bit mode
 	public static long pos = 0;//bytes from the beginning of the stack frame of the function, 0 bring the lowest-address reserved memory address
 	static final byte FALSI = 1;
 	static final byte VERIF = 0;
@@ -24,13 +22,19 @@ class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) 
 	static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	static ArrayList<TreeMap<String, StackVar>> context = new ArrayList<TreeMap<String, StackVar>>();
-	public static void main(String[] argv) throws IOException, InternalCompilerException, CompilationException {
+	public static void main(String[] argv) throws IOException, InternalCompilerException, CompilationException {//TODO make some system for the compiler to know and manage needed register preservation
 		mach = Integer.parseInt(argv[0]);
 		if ((mach < 0) || (mach >= 3)) {
 			throw new InternalCompilerException("Illegal target");
 		}
 		Compiler.rwdata.println(".data");
 		Compiler.text.println(".text");
+		if (mach == 0) {
+			Compiler.text.println(".code16");
+		}
+		else if (mach == 1) {
+			Compiler.text.println(".code32");
+		}
 		String s;
 		String u;
 		Type typ;
@@ -94,8 +98,11 @@ class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) 
 						default:
 							throw new InternalCompilerException("Illegal datum size");
 					}
-					Expression.from(')').bring();
+					Type brog = Expression.from(';').bring();//TODO Avoid bringing the number if it is constant
 					NoScopeVar thno = new NoScopeVar(s, typ);
+					if (brog != typ) {
+						brog.cast(typ);
+					}
 					thno.store();
 					HVars.put(s, thno);
 				}
@@ -171,8 +178,8 @@ class Util {
 	}
 	private Util() {
 	}
-	static Literal getLit(String s) throws NumberFormatException {//TODO support multiple types
-		return new Literal(Type.s16, Long.decode(s));//TODO support unsigned 64-bit literals above Long.MAX_VALUE
+	static Literal getLit(String s) throws NumberFormatException {//TODO support manually defining the type
+		return new Literal(Compiler.defSInt, Long.decode(s));//TODO support unsigned 64-bit literals above Long.MAX_VALUE
 	}
 	static int read() throws IOException {// Use this for UTF-8 instead of anything relying on StreamDecoder that caches characters
 		int g;
@@ -376,60 +383,38 @@ enum Type {
 	s64 (64),
 	f32 (32),
 	f64 (64),
-	a16 (16),
-	a32 (32),
-	a64 (64);
+	a16 (16, true),
+	a32 (32, true),
+	a64 (64, true);
 	final int size;
+	final boolean addressable;
 	Type(int s) {
 		size = s;
+		addressable = false;
 	}
-}
-class Datum {
-	Type type;
-	Expression def;
-	Datum(int i, Expression expr) throws InternalCompilerException {
-		switch (i) {
-			case (0):
-				type = Type.u8;
+	Type(int s, boolean addrsable) {
+		size = s;
+		addressable = addrsable;
+	}
+	void cast(Type toType) throws NotImplementedException {//All casts are valid
+		switch (this) {
+			case u16:
+				if (!(toType.size == 16)) {//If both the original and casted-to types have a size of 16 bits, the binary data doesn't need to be changed
+					throw new NotImplementedException();
+				}
 				break;
-			case (1):
-				type = Type.s8;
+			case s16:
+				if (!(toType.size == 16)) {
+					throw new NotImplementedException();
+				}
 				break;
-			case (2):
-				type = Type.u16;
-				break;
-			case (3):
-				type = Type.s16;
-				break;
-			case (4):
-				type = Type.u32;
-				break;
-			case (5):
-				type = Type.s32;
-				break;
-			case (6):
-				type = Type.u64;
-				break;
-			case (7):
-				type = Type.s64;
-				break;
-			case (8):
-				type = Type.f32;
-				break;
-			case (9):
-				type = Type.f64;
-				break;
-			case (10):
-				type = Type.a16;
-				break;
-			case (11):
-				type = Type.a32;
-				break;
-			case (12):
-				type = Type.a64;
+			case a16:
+				if (!(toType.size == 16)) {
+					throw new NotImplementedException();
+				}
 				break;
 			default:
-				throw new InternalCompilerException("Illegal datum type");
+				throw new NotImplementedException();
 		}
 	}
 }
@@ -484,44 +469,100 @@ class Literal extends Value {
 		return type;
 	}
 }
-enum Operator {
-	ADD,//("+") Arithmetic addition
-	SUB,//("-") Arithmetic subtraction
-	MUL,//("*") Arithmetic multiplication
-	DIV,//("/") Arithmetic division ("/")
-	SHR,//(">>") Bit-wise right shift: Signed-type LHO causes a sign-extending shift, unsigned-type LHO causes a zero-extending shift
-	SHL,//("<<") Bit-wise zero-extending left shift
-	ROR,//(">>>") Bit-wise right roll
-	ROL,//("<<<") Bit-wise left roll
-	AND,//("&") Bit-wise and
-	BNEG,//("~") Bit-wise negation
-	ANEG,//("-") Arithmetic negation TODO maybe don't do this(?)
-	LNEG,//("!") Logical negation: 0 -> 1, else -> 0
-	XOR,//("^") Bit-wise exclusive or
-	OR,//("|") Bit-wise or
-}
-class Postfix extends Item {
-	Operator op;
-	void apply(Item ite) {
-		
+class Operator extends Item {
+	static final Operator ADD = new Operator(false, '+');//("+") Arithmetic addition
+	static final Operator SUB = new Operator(false, '-');//("-") Arithmetic subtraction
+	static final Operator MUL = new Operator(false, '*');//("*") Arithmetic multiplication
+	static final Operator DIV = new Operator(false, '/');//("/") Arithmetic division ("/")
+	static final Operator SHR = new Operator(false, ']');//(">>") Bit-wise zero-filling right shift
+	static final Operator MSHR = new Operator(false, ')');//(">>|") Bit-wise MSB-duplicating right shift
+	static final Operator SHL = new Operator(false, '[');//("<<") Bit-wise zero-filling left shift
+	static final Operator ROR = new Operator(false, '}');//(">>>") Bit-wise right roll
+	static final Operator ROL = new Operator(false, '{');//("<<<") Bit-wise left roll
+	static final Operator AND = new Operator(false, '&');//("&") Bit-wise and
+	static final Operator BNEG = new Operator(true, '~');//("~") Bit-wise negation
+	static final Operator LNEG = new Operator(true, '!');//("!") Logical negation: 0 -> 1, else -> 0
+	static final Operator XOR = new Operator(false, '^');//("^") Bit-wise exclusive or
+	static final Operator OR = new Operator(false, '|');//("|") Bit-wise or
+	static final Operator SCAND = new Operator(false, 'a');//("&&") Short-circuit and (0: TRUE; else: FALSE; TRUE: 0; FALSE: 1)
+	static final Operator SCOR = new Operator(false, 'o');//("||") Short-circuit or (0: TRUE; else: FALSE; TRUE: 0; FALSE: 1)
+	static final Operator GT = new Operator(false, '>');//(">") Greater than
+	static final Operator LT = new Operator(false, '<');//("<") Less than
+	final boolean unary;
+	final int id;
+	Operator(boolean un, int ident) {
+		unary = un;
+		id = ident;
+	}
+	Type apply(Type typ) throws InternalCompilerException {//Unary; The value has already been brought
+		if (!(unary)) {
+			throw new InternalCompilerException("Not a unary operator: " + this.toString());
+		}
+		throw new NotImplementedException();
+	}
+	Type apply(Type LHO, Value RHO) throws CompilationException, InternalCompilerException {//Binary; The LHO has already been brought
+		if (unary) {
+			throw new InternalCompilerException("Not a binary operator: " + this.toString());
+		}
+		switch (id) {
+			case ('+'):
+				switch (LHO.size) {
+					case (64):
+						throw new NotImplementedException();
+					case (32)://Remember that 32-bit push and pop aren't available in 64-bit mode
+						throw new NotImplementedException();
+					case (16)://u16, s16, or a16
+						Type RHtyp = RHO.type;
+						switch (RHtyp.size) {
+							case (64):
+								throw new NotImplementedException();
+							case (32)://Remember that 32-bit push and pop aren't available in 64-bit mode
+								throw new NotImplementedException();
+							case (16)://u16, s16, or a16
+								Compiler.text.println("movw %ax,%bx");//TODO prevent the need for this move by bring()-ing directly to %bx (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function would either use %ax and then move it to %bx because it was told to leave the result in %bx or notify this function that it was left in %ax)
+								RHO.bring();
+								Compiler.text.println("addw %bx,%ax");//TODO add to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
+								if ((LHO == Type.a16) || (RHtyp == Type.a16)) {
+									return Type.a16;
+								}
+								else if ((LHO == Type.s16) || (RHtyp == Type.s16)) {
+									return Type.s16;
+								}
+								else if ((LHO == Type.u16) && (RHtyp == Type.u16)) {
+									return Type.u16;
+								}
+								else {
+									throw new InternalCompilerException("Resultant type of operation could not be resolved");
+								}
+							case (8)://u8 or s8
+								throw new NotImplementedException();
+							default:
+								throw new InternalCompilerException("Illegal datum size");
+						}
+					case (8)://u8 or s8
+						throw new NotImplementedException();
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+			default:
+				throw new NotImplementedException();
+		}
 	}
 }
-class Infix extends Item {
-	Operator op;
-	void apply(Item ite) {
-		
-	}
+interface Storage {
+	public void store() throws CompilationException, InternalCompilerException;
+	public Type bring() throws CompilationException, InternalCompilerException;
 }
-class NoScopeVar extends Value {
+class NoScopeVar extends Value implements Storage {
 	String name;
 	NoScopeVar(String nam, Type typ) {
 		name = nam;
 		type = typ;
 	}
 	public String toString() {
-		return (name + " " + type);
+		return (type + " " + name);
 	}
-	void store() throws InternalCompilerException {
+	public void store() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
 				switch (type.size) {
@@ -548,7 +589,7 @@ class NoScopeVar extends Value {
 				throw new InternalCompilerException("Illegal target");
 		}
 	}
-	Type bring() throws NotImplementedException, InternalCompilerException {
+	public Type bring() throws NotImplementedException, InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
 				switch (type.size) {
@@ -577,9 +618,9 @@ class NoScopeVar extends Value {
 		return type;
 	}
 }
-class StackVar extends Value {//Arguments passed in the SystemVi386CallingConvention-like way are stack variables, scoped to the entire function
+class StackVar extends Value implements Storage {//Arguments passed in the SystemVi386CallingConvention-like way are stack variables, scoped to the entire function
 	long pos;//Offset from base pointer of calling convention
-	Type bring() throws NotImplementedException, InternalCompilerException {
+	public Type bring() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
 				switch (type.size) {
@@ -607,6 +648,33 @@ class StackVar extends Value {//Arguments passed in the SystemVi386CallingConven
 		}
 		return type;
 	}
+	public void store() throws InternalCompilerException {
+		switch (Compiler.mach) {
+			case (0):
+				switch (type.size) {
+					case (64):
+						Compiler.text.println("movw %dx," + (pos + 6) + "(%bp)");
+						Compiler.text.println("movw %cx," + (pos + 4) + "(%bp)");
+					case (32):
+						Compiler.text.println("movw %bx," + (pos + 2) + "(%bp)");
+					case (16):
+						Compiler.text.println("movw %ax" + pos + "(%bp)");
+						break;
+					case (8):
+						Compiler.text.println("movb %al," + pos + "(%bp)");
+						break;
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+				break;
+			case (1):
+				throw new NotImplementedException();
+			case (2):
+				throw new NotImplementedException();
+			default:
+				throw new InternalCompilerException("Illegal target");
+		}
+	}
 }
 class Expression extends Value {
 	private ArrayList<Item> items;
@@ -624,30 +692,68 @@ class Expression extends Value {
 		}
 	}
 	Type bring() throws CompilationException, InternalCompilerException {
+		Type last;
 		int size = items.size();
 		int i = 0;
 		Item ite = items.get(i);
-		if ((ite instanceof Infix) || (ite instanceof Postfix)) {
-			throw new CompilationException("Illegal operator position");
+		Value vail;
+		if (ite instanceof Operator) {
+			throw new CompilationException("Operator at start of expression: " + ite);
 		}
-		if (ite instanceof Value) {
-			((Value) ite).bring();
+		else if (ite instanceof Value) {
+			last = ((Value) ite).bring();
 		}
+		else {
+			throw new InternalCompilerException("Inappropriate expression item: " + ite);
+		}
+		Operator oprt;
 		for (i = 1; i < size; i++) {
 			ite = items.get(i);
-			//TODO finish: "if (ite)"
+			if (!(ite instanceof Operator)) {
+				throw new CompilationException("Not an operator: " + ite);
+			}
+			oprt = (Operator) ite;
+			if (oprt.unary) {
+				last = oprt.apply(last);
+			}
+			else {
+				i++;
+				if (i >= size) {
+					throw new CompilationException("Binary operator missing right-hand operand: " + oprt);
+				}
+				ite = items.get(i);
+				if (!(ite instanceof Value)) {
+					throw new CompilationException("Not a value: " + ite);
+				}
+				vail = (Value) ite;
+				last = oprt.apply(last, vail);
+			}
 		}
 		return ((Value) ite).type;
 	}
 	static Expression from(int ending) throws InternalCompilerException, IOException, CompilationException {//Consumes the ending character
 		Expression ex = new Expression();
+		Item last = null;
 		while (true) {
 			Util.skipWhite();
 			int tg;
-			if ((tg = Util.read()) == '(') {
-				ex.add(from(')'));
+			tg = Util.read();
+			if (tg == '(') {
+				if (last instanceof Value) {
+					if (!(((Value) last).type.addressable)) {
+						if ((((Value) last).type.size != 16) && (((Value) last).type.size != 32) && (((Value) last).type.size != 64)) {
+							throw new CompilationException("Call to a non-addressable value: Cast the value to an addressable value first");//TODO implement casting
+						}
+						throw new CompilationException("Call to a non-addressable value: Cast the value to an addressable value first or use the raw conversion operator \'!\'");//TODO implement raw conversion operator (used for raw conversions and to override function parameter bit sizes (placed differently for overriding function parameter bit sizes and for raw conversion of a value to an address for function calling))
+					}
+					//TODO implement function calls
+				}
+				else {
+					ex.add(from(')'));
+				}
 				continue;
 			}
+			
 			else if (tg == ending) {
 				ex.finalised = true;
 				return ex;
@@ -658,27 +764,21 @@ class Expression extends Value {
 				Literal lit;
 				if (Util.legalIdent(s)) {
 					Util.skipWhite();
-					if ((tg = Util.read()) == '(') {
-						throw new NotImplementedException();//Implement function calls
-					}
-					else {
-						Util.unread(tg);
-						StackVar sv = null;
-						for (int i = Compiler.context.size(); i >= 0; i--) {
-							sv = Compiler.context.get(i).get(s);
-							if (sv != null) {
-								ex.add(sv);
-								break;
-							}
+					StackVar sv = null;
+					for (int i = Compiler.context.size() - 1; i >= 0; i--) {
+						sv = Compiler.context.get(i).get(s);
+						if (sv != null) {
+							ex.add(sv);
+							break;
 						}
-						if (sv == null) {
-							NoScopeVar hv = Compiler.HVars.get(s);
-							if (hv == null) {
-								throw new CompilationException("Undefined variable: " + s);
-							}
-							else {
-								ex.add(hv);
-							}
+					}
+					if (sv == null) {
+						NoScopeVar hv = Compiler.HVars.get(s);
+						if (hv == null) {
+							throw new SymbolUndefinedException("Undefined symbol: " + s);
+						}
+						else {
+							ex.add(hv);
 						}
 					}
 				}
@@ -690,8 +790,24 @@ class Expression extends Value {
 					catch (NumberFormatException e) {
 						if (s.length() != 0) {
 							throw new CompilationException("Invalid statement: " + s);
+						}//Not an expression, function call, symbol, or literal
+						int i = Util.read();
+						switch (i) {
+							case ('+'):
+								ex.add(Operator.ADD);
+								break;
+							case ('-'):
+								ex.add(Operator.SUB);
+								break;
+							case ('*'):
+								ex.add(Operator.MUL);
+								break;
+							case ('/'):
+								ex.add(Operator.DIV);
+								break;
+							default:
+								throw new NotImplementedException();
 						}
-						//Not an expression, function call, variable, or literal
 					}
 				}
 			}
@@ -714,8 +830,8 @@ class CompilationException extends Exception {
 	}
 }
 @SuppressWarnings("serial")
-class VariableUndefinedException extends CompilationException {
-	VariableUndefinedException(String reas) {
+class SymbolUndefinedException extends CompilationException {
+	SymbolUndefinedException(String reas) {
 		super(reas);
 	}
 }
@@ -728,4 +844,3 @@ class NotImplementedException extends InternalCompilerException {
 		super(reas);
 	}
 }
-

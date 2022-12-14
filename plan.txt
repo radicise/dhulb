@@ -1,0 +1,7 @@
+addresses with associated parameters as functions
+overriding the parameters or lack thereof during passing of these using "!"
+overriding the total parameter bit size of a function call using "!"
+warning when the parameter sizes of a function are different than a calling of it but the total parameter bit size is the same
+warning when the total parameter bit size of a function is less than that of a calling of it
+warning + security warning when the total parameter bit size of a function is more than that of a calling of it
+use of '!' to move raw binary data form one type to another without casting
