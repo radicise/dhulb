@@ -1,70 +1,106 @@
 package Dhulb;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PushbackInputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.TreeMap;
 class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) (or some other names like those)
-	public static PrintStream text = System.out;
-	public static PrintStream rwdata = System.out;//TODO different stream and then concatenate
-	public static PushbackInputStream in = new PushbackInputStream(System.in, 16);
+	public static PrintStream nowhere;//Never be modified after initial setting
+	public static PrintStream prologue;
+	public static PrintStream epilogue;
+	public static PrintStream rwdata;
+	public static PrintStream text;
+	public static PushbackInputStream in = new PushbackInputStream(System.in, 64);//Do not unread too much
 	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode, 2: AMD64 64-bit mode
 	public static long pos = 0;//bytes from the beginning of the stack frame of the function, 0 bring the lowest-address reserved memory address
-	static final byte FALSI = 1;
-	static final byte VERIF = 0;
+	static final long FALSI = 1;
+	static final long VERIF = 0;
 	static Type defUInt = Type.u16;
 	static Type defSInt = Type.s16;
 	static Type def754 = Type.f32;
 	static Type defAdr = Type.a16;
+	public static int warns = 0;
 	static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	static ArrayList<TreeMap<String, StackVar>> context = new ArrayList<TreeMap<String, StackVar>>();
-	public static void main(String[] argv) throws IOException, InternalCompilerException, CompilationException {//TODO make some system for the compiler to know and manage needed register preservation
+	public static void main(String[] argv) throws IOException, InternalCompilerException {
+		PrintStream proback = null;
+		PrintStream epiback = null;
+		PrintStream rwdatback = null;
+		PrintStream texback = null;
+		try {
+			nowhere = new PrintStream(new File("/dev/null"));//Support for non-POSIX systems
+			prologue = System.out;
+			proback = prologue;
+			epilogue = System.out;
+			epiback = epilogue;
+			rwdata = System.out;
+			rwdatback = rwdata;
+			text = System.out;//TODO different streams and then concatenate
+			texback = text;
+			//TODO prologue
+			ma(argv);
+			prologue = proback;
+			epilogue = epiback;
+			rwdata = rwdatback;
+			text = texback;
+			finishStreams();
+			//TODO epilogue
+		}
+		catch (CompilationException exc) {
+			prologue = proback;
+			epilogue = epiback;
+			rwdata = rwdatback;
+			text = texback;
+			System.out.println("Compilation error: " + exc.getMessage());
+			//TODO epilogue
+			finishStreams();
+		}
+		
+	}
+	static void finishStreams() {//TODO concatenate the files, add a new line 
+	}
+	public static void ma(String[] argv) throws IOException, InternalCompilerException, CompilationException {//TODO make some system for the compiler to know and manage needed register preservation
 		mach = Integer.parseInt(argv[0]);
 		if ((mach < 0) || (mach >= 3)) {
-			throw new InternalCompilerException("Illegal target");
+			throw new CompilationException("Illegal target");
 		}
 		Compiler.rwdata.println(".data");
 		Compiler.text.println(".text");
 		if (mach == 0) {
 			Compiler.text.println(".code16");
+			defUInt = Type.u16;
+			defSInt = Type.s16;
+			def754 = Type.f32;
+			defAdr = Type.a16;
 		}
 		else if (mach == 1) {
 			Compiler.text.println(".code32");
+			defUInt = Type.u32;
+			defSInt = Type.s32;
+			def754 = Type.f32;
+			defAdr = Type.a32;
+		}
+		else if (mach == 2) {
+			defUInt = Type.u64;
+			defSInt = Type.s64;
+			def754 = Type.f64;
+			defAdr = Type.a64;
+		}
+		else {
+			throw new InternalCompilerException("Unidentifiable target");
 		}
 		String s;
-		String u;
-		Type typ;
+		FullType typ;
 		int i;
 		while (true) {
-			s = Util.phrase(0x29);
-			if (Util.primsk.contains(s)) {
-				try {
-					typ = Type.valueOf(s);
-				}
-				catch (IllegalArgumentException E) {
-					if (s.equals("uint")) {
-						typ = defUInt;
-					}
-					else if (s.equals("sint")) {
-						typ = defSInt;
-					}
-					else if (s.equals("float")) {
-						typ = def754;
-					}
-					else if (s.equals("addr")) {
-						typ = defAdr;
-					}
-					else if (s.equals("int")) {
-						typ = defSInt;
-					}
-					else {
-						throw new InternalCompilerException("Type cannot be found: " + s);
-					}
-				}
+			try {
+				typ = FullType.from();
 				s = Util.phrase(0x35);
 				if (!(Util.legalIdent(s))) {
 					throw new CompilationException("Illegal identifier: " + s);
@@ -82,7 +118,7 @@ class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) 
 				Util.skipWhite();
 				if ((i = Util.read()) == '=') {
 					Compiler.rwdata.println(s + ":");
-					switch (typ.size) {
+					switch (typ.type.size) {
 						case (8):
 							Compiler.rwdata.println(".byte 0x00");
 							break;
@@ -98,7 +134,9 @@ class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) 
 						default:
 							throw new InternalCompilerException("Illegal datum size");
 					}
-					Type brog = Expression.from(';').bring();//TODO Avoid bringing the number if it is constant
+					//System.out.println(Expression.from(';'));
+					//FullType brog = null;
+					FullType brog = Expression.from(';').bring();//TODO Avoid bringing the number if it is constant
 					NoScopeVar thno = new NoScopeVar(s, typ);
 					if (brog != typ) {
 						brog.cast(typ);
@@ -108,7 +146,7 @@ class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) 
 				}
 				else if (i == ';') {
 					Compiler.rwdata.println(s + ":");
-					switch (typ.size) {
+					switch (typ.type.size) {
 						case (8):
 							Compiler.rwdata.println(".byte 0x00");
 							break;
@@ -126,15 +164,17 @@ class Compiler {//TODO keywords: "imply" (like extern), "linkable" (like globl) 
 					}
 					HVars.put(s, new NoScopeVar(s, typ));
 				}
+				else if (i == '(') {
+					throw new NotImplementedException();//TODO implement functions
+				}
 				else {
 					throw new CompilationException("Illegal operator");
 				}
 			}
-			else if (true) {//TODO do
-				
+			catch (UnidentifiableTypeText utt) {//TODO do
+				s = utt.verbatim;
 			}
 		}
-		
 	}
 	
 }
@@ -178,8 +218,19 @@ class Util {
 	}
 	private Util() {
 	}
-	static Literal getLit(String s) throws NumberFormatException {//TODO support manually defining the type
-		return new Literal(Compiler.defSInt, Long.decode(s));//TODO support unsigned 64-bit literals above Long.MAX_VALUE
+	static void warn(String s, int strm) {
+		Compiler.warns++;
+		switch (strm) {
+			case (1):
+				Compiler.rwdata.println("# Warning: " + s);
+				break;
+			case (2):
+				Compiler.text.println("# Warning: " + s);
+				break;
+		}
+	}
+	static Literal getLit(String s) throws NumberFormatException, InternalCompilerException {//TODO support manually defining the type
+		return new Literal(FullType.of(Compiler.defSInt), Long.decode(s));//TODO support unsigned 64-bit literals above Long.MAX_VALUE
 	}
 	static int read() throws IOException {// Use this for UTF-8 instead of anything relying on StreamDecoder that caches characters
 		int g;
@@ -190,6 +241,12 @@ class Util {
 			return g;
 		}
 		throw new UnsupportedOperationException();// TODO full support for UTF-8
+	}
+	static void unread(String s) throws IOException {
+		byte[] bys = s.getBytes(StandardCharsets.UTF_8);
+		for (int i = bys.length - 1; i >= 0; i--) {
+			Compiler.in.unread(bys[i]);
+		}
 	}
 	static void unread(int f) throws IOException, InternalCompilerException {
 		if ((f > 0x10ffff) || (f < 0)) {
@@ -341,16 +398,193 @@ class Util {
 	}
 }
 class Function {
+	FullType retType;
+	String name;
+	FullType[] args;
+	static Function from() throws NotImplementedException {//starts before the function definition (whitespace before it allowed), consumes everything up to the closing curly brace, inclusive
+		throw new NotImplementedException();
+	}
 	
+	
+}
+class FullType {//Like Type but with possible pointing or running clauses
+	static final FullType u8 = new FullType(Type.u8);
+	static final FullType s8 = new FullType(Type.s8);
+	static final FullType u16 = new FullType(Type.u16);
+	static final FullType s16 = new FullType(Type.s16);
+	static final FullType u32 = new FullType(Type.u32);
+	static final FullType s32 = new FullType(Type.s32);
+	static final FullType u64 = new FullType(Type.u64);
+	static final FullType s64 = new FullType(Type.s64);
+	static final FullType f32 = new FullType(Type.f32);
+	static final FullType f64 = new FullType(Type.f64);
+	static final FullType a16 = new FullType(Type.a16);
+	static final FullType a32 = new FullType(Type.a32);
+	static final FullType a64 = new FullType(Type.a64);//Do not depend on pointers to any of these matching with anything; these are to prevent the need of repeatedly making FullType instances
+	final Type type;
+	final FullType[] runsWith;//non-null when there is a calling clause; null otherwise
+	final FullType gives;//non-null when there is a pointing clause (specifies particular full type that must be pointed to) and also when there is a calling clause; null otherwise
+	FullType(Type typ) {
+		type = typ;
+		runsWith = null;
+		gives = null;
+	}
+	FullType(Type typ, FullType giv, FullType[] run) throws InternalCompilerException {
+		if (!(typ.addressable)) {
+			throw new InternalCompilerException("Calling clause for non-addressable argument");
+		}
+		type = typ;
+		runsWith = run;
+		gives = giv;
+	}
+	FullType(Type typ, FullType pointed) throws InternalCompilerException {
+		if (!(typ.addressable)) {
+			throw new InternalCompilerException("Pointing clause for non-addressable argument");
+		}
+		type = typ;
+		runsWith = null;
+		gives = pointed;
+	}
+	static FullType from() throws UnidentifiableTypeText, CompilationException, InternalCompilerException, IOException {//Throws UnidentifiableTypeText when the phrase(0x29) call yields a string which does not correspond to any valid type or any valid type shorthand notation
+		String s = Util.phrase(0x29);
+		Type typ;
+		if (Util.primsk.contains(s)) {
+			try {
+				typ = Type.valueOf(s);
+			}
+			catch (IllegalArgumentException E) {
+				if (s.equals("uint")) {
+					typ = Compiler.defUInt;
+				}
+				else if (s.equals("sint")) {
+					typ = Compiler.defSInt;
+				}
+				else if (s.equals("float")) {
+					typ = Compiler.def754;
+				}
+				else if (s.equals("addr")) {
+					typ = Compiler.defAdr;
+				}
+				else if (s.equals("int")) {
+					typ = Compiler.defSInt;
+				}
+				else {
+					throw new InternalCompilerException("Type cannot be found: " + s);
+				}
+			}
+		}
+		else {
+			throw new UnidentifiableTypeText(s);
+		}
+		Util.skipWhite();
+		int ci = Util.read();
+		if (ci == '*') {
+			if (!(typ.addressable)) {
+				throw new CompilationException("Cannot add pointing or calling clause for non-addressable type");
+			}
+			Util.skipWhite();
+			FullType given = from();
+			Util.skipWhite();
+			ci = Util.read();
+			if (ci == '(') {
+				ArrayList<FullType> fl = new ArrayList<FullType>();
+				Util.skipWhite();
+				ci = Util.read();
+				if (ci == ')') {
+					return new FullType(typ, given, new FullType[0]);
+				}
+				Util.unread(ci);
+				while (true) {
+					fl.add(from());
+					Util.skipWhite();
+					ci = Util.read();
+					if (ci == ')') {
+						return new FullType(typ, given, fl.toArray(new FullType[0]));
+					}
+					else if (ci != ',') {
+						throw new CompilationException("Unexpected statement");
+					}
+					Util.skipWhite();
+				}
+			}
+			else {
+				Util.unread(ci);
+				return new FullType(typ, given);
+			}
+		}
+		else {
+			Util.unread(ci);
+			return of(typ);
+		}
+	}
+	static FullType of(Type bec) throws InternalCompilerException {
+		switch (bec) {
+			case u8:
+				return u8;
+			case s8:
+				return s8;
+			case u16:
+				return u16;
+			case s16:
+				return s16;
+			case u32:
+				return u32;
+			case s32:
+				return s32;
+			case u64:
+				return u64;
+			case s64:
+				return s64;
+			case f32:
+				return f32;
+			case f64:
+				return f64;
+			case a16:
+				return a16;
+			case a32:
+				return a32;
+			case a64:
+				return a64;
+			default:
+				throw new InternalCompilerException("Unidentifiable type");
+		}
+	}
+	void cast(FullType toType) throws NotImplementedException {//All casts are valid
+		switch (type) {
+			case u16:
+				if (!(toType.type.size == 16)) {//If both the original and casted-to types have a size of 16 bits, the binary data doesn't need to be changed
+					throw new NotImplementedException();
+				}
+				if (toType.type.addressable) {
+					Util.warn("Casting from s16 to a16", 2);
+				}
+				break;
+			case s16:
+				if (!(toType.type.size == 16)) {
+					throw new NotImplementedException();
+				}
+				if (toType.type.addressable) {
+					Util.warn("Casting from s16 to a16", 2);
+				}
+				break;
+			case a16:
+				if (!(toType.type.size == 16)) {
+					throw new NotImplementedException();
+				}
+				break;
+			default:
+				throw new NotImplementedException();
+		}
+	}
 }
 class Dhulb {
 	private Dhulb() {
 	}
 	void args1616(int amnt, Value[] vals, String fname) throws InternalCompilerException, CompilationException {
-		Type typ;
+		FullType typ;
 		for (int i = (amnt - 1); i >= 0; i--) {
 			typ = vals[i].bring();
-			switch (typ.size) {
+			switch (typ.type.size) {
 				case (8):
 					Compiler.text.println("decw %sp");
 					Compiler.text.println("movb %al,(%sp)");
@@ -396,45 +630,24 @@ enum Type {
 		size = s;
 		addressable = addrsable;
 	}
-	void cast(Type toType) throws NotImplementedException {//All casts are valid
-		switch (this) {
-			case u16:
-				if (!(toType.size == 16)) {//If both the original and casted-to types have a size of 16 bits, the binary data doesn't need to be changed
-					throw new NotImplementedException();
-				}
-				break;
-			case s16:
-				if (!(toType.size == 16)) {
-					throw new NotImplementedException();
-				}
-				break;
-			case a16:
-				if (!(toType.size == 16)) {
-					throw new NotImplementedException();
-				}
-				break;
-			default:
-				throw new NotImplementedException();
-		}
-	}
 }
 abstract class Item {
 	
 }
 abstract class Value extends Item {
-	Type type;
-	abstract Type bring() throws CompilationException, InternalCompilerException;
+	FullType type;
+	abstract FullType bring() throws CompilationException, InternalCompilerException;
 }
 class Literal extends Value {
 	final long val;//Non-conforming places must hold zero
-	Literal(Type typ, long vlu) {
+	Literal(FullType typ, long vlu) {
 		type = typ;
-		val = (vlu & (0xffffffffffffffffL >>> (64 - type.size)));
+		val = (vlu & (0xffffffffffffffffL >>> (64 - type.type.size)));
 	}
-	Type bring() throws InternalCompilerException {
+	FullType bring() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
-				if (type.size == 8) {
+				if (type.type.size == 8) {
 					if (val == 0) {
 						Compiler.text.println("xorb %al, %al");
 					}
@@ -442,14 +655,14 @@ class Literal extends Value {
 						Compiler.text.println("movb $" + Util.hexb(val) + ", %al");
 					}
 				}
-				else if (type.size == 16) {
+				else if (type.type.size == 16) {
 					Util.bring16('a', (short) val);
 				}
-				else if (type.size == 32) {
+				else if (type.type.size == 32) {
 					Util.bring16('a', ((short) val));
 					Util.bring16('b', ((short) (val >>> 16)));
 				}
-				else if (type.size == 64) {
+				else if (type.type.size == 64) {
 					Util.bring16('a', ((short) val));
 					Util.bring16('b', ((short) (val >>> 16)));
 					Util.bring16('c', ((short) (val >>> 32)));
@@ -494,42 +707,43 @@ class Operator extends Item {
 		unary = un;
 		id = ident;
 	}
-	Type apply(Type typ) throws InternalCompilerException {//Unary; The value has already been brought
+	FullType apply(FullType typ) throws InternalCompilerException {//Unary; The value has already been brought
 		if (!(unary)) {
 			throw new InternalCompilerException("Not a unary operator: " + this.toString());
 		}
 		throw new NotImplementedException();
 	}
-	Type apply(Type LHO, Value RHO) throws CompilationException, InternalCompilerException {//Binary; The LHO has already been brought
+	FullType apply(FullType LHO, Value RHO) throws CompilationException, InternalCompilerException {//Binary; The LHO has already been brought
 		if (unary) {
 			throw new InternalCompilerException("Not a binary operator: " + this.toString());
 		}
 		switch (id) {
 			case ('+'):
-				switch (LHO.size) {
+				switch (LHO.type.size) {
 					case (64):
 						throw new NotImplementedException();
 					case (32)://Remember that 32-bit push and pop aren't available in 64-bit mode
 						throw new NotImplementedException();
 					case (16)://u16, s16, or a16
-						Type RHtyp = RHO.type;
-						switch (RHtyp.size) {
+						FullType RHtyp = RHO.type;
+						switch (RHtyp.type.size) {
 							case (64):
 								throw new NotImplementedException();
 							case (32)://Remember that 32-bit push and pop aren't available in 64-bit mode
 								throw new NotImplementedException();
 							case (16)://u16, s16, or a16
-								Compiler.text.println("movw %ax,%bx");//TODO prevent the need for this move by bring()-ing directly to %bx (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function would either use %ax and then move it to %bx because it was told to leave the result in %bx or notify this function that it was left in %ax)
+								Compiler.text.println("pushw %ax");//TODO prevent the need for this move by bring()-ing directly to %bx and preserving %ax (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function might warn this function that it would be left in %ax)
 								RHO.bring();
+								Compiler.text.println("popw %bx");
 								Compiler.text.println("addw %bx,%ax");//TODO add to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
-								if ((LHO == Type.a16) || (RHtyp == Type.a16)) {
-									return Type.a16;
+								if ((LHO.type == Type.a16) || (RHtyp.type == Type.a16)) {
+									return FullType.a16;//Gets rid of calling and pointing clauses
 								}
-								else if ((LHO == Type.s16) || (RHtyp == Type.s16)) {
-									return Type.s16;
+								else if ((LHO.type == Type.s16) || (RHtyp.type == Type.s16)) {
+									return FullType.s16;
 								}
-								else if ((LHO == Type.u16) && (RHtyp == Type.u16)) {
-									return Type.u16;
+								else if ((LHO.type == Type.u16) && (RHtyp.type == Type.u16)) {
+									return FullType.u16;
 								}
 								else {
 									throw new InternalCompilerException("Resultant type of operation could not be resolved");
@@ -551,11 +765,11 @@ class Operator extends Item {
 }
 interface Storage {
 	public void store() throws CompilationException, InternalCompilerException;
-	public Type bring() throws CompilationException, InternalCompilerException;
+	public FullType bring() throws CompilationException, InternalCompilerException;
 }
 class NoScopeVar extends Value implements Storage {
 	String name;
-	NoScopeVar(String nam, Type typ) {
+	NoScopeVar(String nam, FullType typ) {
 		name = nam;
 		type = typ;
 	}
@@ -565,7 +779,7 @@ class NoScopeVar extends Value implements Storage {
 	public void store() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
-				switch (type.size) {
+				switch (type.type.size) {
 					case (64):
 						Compiler.text.println("movw %dx," + name + "+6(,1)");
 						Compiler.text.println("movw %cx," + name + "+4(,1)");
@@ -589,10 +803,10 @@ class NoScopeVar extends Value implements Storage {
 				throw new InternalCompilerException("Illegal target");
 		}
 	}
-	public Type bring() throws NotImplementedException, InternalCompilerException {
+	public FullType bring() throws NotImplementedException, InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
-				switch (type.size) {
+				switch (type.type.size) {
 					case (64):
 						Compiler.text.println("movw " + name + "+6(,1),%dx");
 						Compiler.text.println("movw " + name + "+4(,1),%cx");
@@ -620,10 +834,10 @@ class NoScopeVar extends Value implements Storage {
 }
 class StackVar extends Value implements Storage {//Arguments passed in the SystemVi386CallingConvention-like way are stack variables, scoped to the entire function
 	long pos;//Offset from base pointer of calling convention
-	public Type bring() throws InternalCompilerException {
+	public FullType bring() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
-				switch (type.size) {
+				switch (type.type.size) {
 					case (64):
 						Compiler.text.println("movw " + (pos + 6) + "(%bp),%dx");
 						Compiler.text.println("movw " + (pos + 4) + "(%bp),%cx");
@@ -651,7 +865,7 @@ class StackVar extends Value implements Storage {//Arguments passed in the Syste
 	public void store() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
-				switch (type.size) {
+				switch (type.type.size) {
 					case (64):
 						Compiler.text.println("movw %dx," + (pos + 6) + "(%bp)");
 						Compiler.text.println("movw %cx," + (pos + 4) + "(%bp)");
@@ -691,8 +905,22 @@ class Expression extends Value {
 			items.add(i);
 		}
 	}
-	Type bring() throws CompilationException, InternalCompilerException {
-		Type last;
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Expression: ");
+		asString(sb);
+		return sb.toString();
+	}
+	void asString(StringBuilder sb) {
+		sb.append("(");
+		for (Item ite : items) {
+			sb.append(ite);
+			sb.append(" ");
+		}
+		sb.append(")");
+	}
+	FullType bring() throws CompilationException, InternalCompilerException {
+		FullType last;
 		int size = items.size();
 		int i = 0;
 		Item ite = items.get(i);
@@ -740,9 +968,9 @@ class Expression extends Value {
 			tg = Util.read();
 			if (tg == '(') {
 				if (last instanceof Value) {
-					if (!(((Value) last).type.addressable)) {
-						if ((((Value) last).type.size != 16) && (((Value) last).type.size != 32) && (((Value) last).type.size != 64)) {
-							throw new CompilationException("Call to a non-addressable value: Cast the value to an addressable value first");//TODO implement casting
+					if (!(((Value) last).type.type.addressable)) {
+						if ((((Value) last).type.type.size != 16) && (((Value) last).type.type.size != 32) && (((Value) last).type.type.size != 64)) {
+							throw new CompilationException("Call to a non-addressable value of improper size: Cast the value to an addressable value first");//TODO implement casting
 						}
 						throw new CompilationException("Call to a non-addressable value: Cast the value to an addressable value first or use the raw conversion operator \'!\'");//TODO implement raw conversion operator (used for raw conversions and to override function parameter bit sizes (placed differently for overriding function parameter bit sizes and for raw conversion of a value to an address for function calling))
 					}
@@ -756,6 +984,10 @@ class Expression extends Value {
 			
 			else if (tg == ending) {
 				ex.finalised = true;
+				PrintStream pstemp = Compiler.text;
+				Compiler.text = Compiler.nowhere;
+				ex.type = ex.bring();//TODO maybe un-bodge
+				Compiler.text = pstemp;
 				return ex;
 			}
 			else {
@@ -842,5 +1074,13 @@ class NotImplementedException extends InternalCompilerException {
 	}
 	NotImplementedException(String reas) {
 		super(reas);
+	}
+}
+@SuppressWarnings("serial")
+class UnidentifiableTypeText extends Throwable {
+	final String verbatim;
+	UnidentifiableTypeText(String s) {
+		super();
+		verbatim = s;
 	}
 }
