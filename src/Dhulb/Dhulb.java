@@ -31,6 +31,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
 	public static final long FALSI = 1;
 	public static final long VERIF = 0;
+	public static boolean typeNicksApplicable = true;
+	public static boolean allowTypeNicks = true;
 	public static Type defUInt = Type.u16;
 	public static Type defSInt = Type.s16;
 	public static Type def754 = Type.f32;
@@ -121,6 +123,10 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		if (argv[1].contains("t")) {
 			showCompilationErrorStackTrace = true;
 		}
+		if (argv[1].contains("N")) {
+			allowTypeNicks = false;
+			typeNicksApplicable = false;
+		}
 		try {
 			while (true) {
 				getCompilable(program, false, null);
@@ -139,146 +145,92 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		String s;
 		FullType typ;
 		int i;
-		try {
-			Util.skipWhite();
-			i = Util.read();
-			if (i == '}') {
-				throw new BlockEndException();
-			}
-			else if (i == '{') {
-				throw new NotImplementedException();//TODO support for blocks (saves stack space)
-			}
-			else if (i == '/') {
-				if ((i = Util.read()) == '%') {
-					RawText r = new RawText(rwdatback);
-					try {
-						while (true) {
-							i = Util.readByte();
-							if (i == '\\') {
-								r.dat.put((byte) Util.readByte());
-							}
-							else if (i == '%') {
-								if ((i = Util.readByte()) == '/') {
-									list.add(r);
-									return;
-								}
-								r.dat.put((byte) '%');
-								r.dat.put((byte) i);
-							}
-							else {
-								r.dat.put((byte) i);
-							}
-						}
-					}
-					catch (EOFException E) {
-						throw new CompilationException("Un-closed comment");
-					}
-				}
-				else if (i == '&') {
-					RawText w = new RawText(texback);
-					try {
-						while (true) {
-							i = Util.readByte();
-							if (i == '\\') {
-								w.dat.put((byte) Util.readByte());
-							}
-							else if (i == '&') {
-								if ((i = Util.readByte()) == '/') {
-									list.add(w);
-									return;
-								}
-								w.dat.put((byte) '&');
-								w.dat.put((byte) i);
-							}
-							else {
-								w.dat.put((byte) i);
-							}
-						}
-					}
-					catch (EOFException E) {
-						throw new CompilationException("Un-closed comment");
-					}
-				}
-				else if (i == '*') {
-					try {
-						while (true) {
-							if (Util.read() == '*') {
-								if ((i = Util.read()) == '/') {
-									return;
-								}
-								else {
-									Util.unread(i);
-								}
-							}
-						}
-					}
-					catch (EOFException E) {
-						throw new CompilationException("Un-closed comment");
-					}
-				}
-				else {
-					Util.unread(i);
-				}
-				i = '/';
-			}
-			Util.unread(i);
-			typ = FullType.from();
-			Util.skipWhite();
-			s = Util.phrase(0x3d);
-			if (!(Util.legalIdent(s))) {
-				throw new CompilationException("Illegal identifier: " + s);
-			}
-			if (inFunc) {
-				for (Map<String, StackVar> cn : context) {
-					if (cn.containsKey(s)) {
-						throw new CompilationException("Stack variable naming collision: " + s + " is defined again in the same scope or an enclosing scope");
-					}
-				}
-			}
-			else {
-				NoScopeVar coll = HVars.get(s);
-				if (coll != null) {
-					throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with " + coll.toString());
-				}
-				Function collf = HFuncs.get(s);
-				if (collf != null) {
-					throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with " + collf.toString());
-				}
-			}
-			Util.skipWhite();
-			if ((i = Util.read()) == '=') {
-				if (inFunc) {
-					StackVar sav = new StackVar(fn.adjust(-((typ.type.size / 8) + (((typ.type.size % 8) == 0) ? 0 : 1))), typ);
-					context.peek().put(s, sav);
-					list.add(new Assignment(sav, Expression.from(';')));
-				}
-				else {
-					list.add(new globalVarDecl(s, typ));
-					NoScopeVar thno = new NoScopeVar(s, typ);
-					HVars.put(s, thno);//Before the assignment so that the assignment can refer the the variable itself, which should contain the default value when dealing with a global variable and whatever data was already there when dealing with a stack variable
-					list.add(new Assignment(thno, Expression.from(';')));//TODO Avoid eventually bringing the number if it is constant
-				}
-			}
-			else if (i == ';') {
-				if (inFunc) {
-					context.peek().put(s, new StackVar(fn.adjust(-((typ.type.size / 8) + (((typ.type.size % 8) == 0) ? 0 : 1))), typ));
-				}
-				else {
-					list.add(new globalVarDecl(s, typ));
-					HVars.put(s, new NoScopeVar(s, typ));
-				}
-			}
-			else if (i == '(') {
-				if (inFunc) {
-					throw new CompilationException("Function declaration not allowed within a function");//TODO maybe implement nested functions: it would be kind of easy, to take advantage of the already-existing stack of function-scoped values
-				}
-				list.add(Function.from(typ, s, HFuncs));
-			}
-			else {
-				throw new CompilationException("Illegal operator: " + new String(new int[]{i}, 0, 1));
-			}
+		Util.skipWhite();
+		i = Util.read();
+		if (i == '}') {
+			throw new BlockEndException();
 		}
-		catch (UnidentifiableTypeException utt) {//TODO when the first thing is not a FullType
+		else if (i == '{') {
+			throw new NotImplementedException();//TODO support for blocks (saves stack space)
+		}
+		else if (i == '/') {
+			if ((i = Util.read()) == '%') {
+				RawText r = new RawText(rwdatback);
+				try {
+					while (true) {
+						i = Util.readByte();
+						if (i == '\\') {
+							r.dat.put((byte) Util.readByte());
+						}
+						else if (i == '%') {
+							if ((i = Util.readByte()) == '/') {
+								list.add(r);
+								return;
+							}
+							r.dat.put((byte) '%');
+							r.dat.put((byte) i);
+						}
+						else {
+							r.dat.put((byte) i);
+						}
+					}
+				}
+				catch (EOFException E) {
+					throw new CompilationException("Un-closed comment");
+				}
+			}
+			else if (i == '&') {
+				RawText w = new RawText(texback);
+				try {
+					while (true) {
+						i = Util.readByte();
+						if (i == '\\') {
+							w.dat.put((byte) Util.readByte());
+						}
+						else if (i == '&') {
+							if ((i = Util.readByte()) == '/') {
+								list.add(w);
+								return;
+							}
+							w.dat.put((byte) '&');
+							w.dat.put((byte) i);
+						}
+						else {
+							w.dat.put((byte) i);
+						}
+					}
+				}
+				catch (EOFException E) {
+					throw new CompilationException("Un-closed comment");
+				}
+			}
+			else if (i == '*') {
+				try {
+					while (true) {
+						if (Util.read() == '*') {
+							if ((i = Util.read()) == '/') {
+								return;
+							}
+							else {
+								Util.unread(i);
+							}
+						}
+					}
+				}
+				catch (EOFException E) {
+					throw new CompilationException("Un-closed comment");
+				}
+			}
+			else {
+				Util.unread(i);
+			}
+			i = '/';
+		}
+		Util.unread(i);
+		try {
+			typ = FullType.from();
+		}
+		catch (UnidentifiableTypeException utt) {
 			s = utt.verbatim;//s = phrase(0x2d)
 			if (Util.legalIdent(s)) {
 				Storage st = null;
@@ -313,6 +265,58 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					}
 				}
 			}
+			else if (Util.keywork.contains(s)) {
+				switch (s) {
+					case ("imply"):
+						typeNicksApplicable = false;
+						Util.skipWhite();
+						FullType ft = FullType.from();
+						Util.skipWhite();
+						String r = Util.phrase(0x3d);
+						Util.skipWhite();
+						int ne = Util.read();
+						if (ne == '(') {
+							FullType[] fts = FullType.getList(')');
+							Util.skipWhite();
+							ne = Util.read();
+							if (ne == ';') {
+								HFuncs.put(r, new Function(ft, fts, null, r));
+							}
+							else {
+								Util.unread(ne);
+								String j = Util.phrase(0x24);
+								Util.skipWhite();
+								ne = Util.read();
+								if (ne != ';') {
+									throw new CompilationException("Unexpected operator: " + new String(new int[]{ne}, 0, 1));
+								}
+								switch (j) {
+									case ("call16"):
+										HFuncs.put(r, new Function(ft, fts, null, r, 16));
+										break;
+									case ("call32"):
+										HFuncs.put(r, new Function(ft, fts, null, r, 32));
+										break;
+									case ("call64"):
+										HFuncs.put(r, new Function(ft, fts, null, r, 64));
+										break;
+									default:
+										throw new CompilationException("Invalid qualifier: " + j);
+								}
+							}
+						}
+						else if (ne != ';') {
+							throw new CompilationException("Unexpected operator: " + new String(new int[]{ne}, 0, 1));
+						}
+						else {
+							HVars.put(r, new NoScopeVar(r, ft));
+						}
+						typeNicksApplicable = allowTypeNicks;
+						return;
+					default:
+						throw new NotImplementedException("Not implemented or invalid syntax");
+				}
+			}
 			else {
 				if (s.length() == 0) {
 					i = Util.read();
@@ -333,6 +337,61 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					list.add(Expression.from(';', j));
 				}
 			}
+			return;
+		}
+		Util.skipWhite();
+		s = Util.phrase(0x3d);
+		if (!(Util.legalIdent(s))) {
+			throw new CompilationException("Illegal identifier: " + s);
+		}
+		if (inFunc) {
+			for (Map<String, StackVar> cn : context) {
+				if (cn.containsKey(s)) {
+					throw new CompilationException("Stack variable naming collision: " + s + " is defined again in the same scope or an enclosing scope");
+				}
+			}
+		}
+		else {
+			NoScopeVar coll = HVars.get(s);
+			if (coll != null) {
+				throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with " + coll.toString());
+			}
+			Function collf = HFuncs.get(s);
+			if (collf != null) {
+				throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with " + collf.toString());
+			}
+		}
+		Util.skipWhite();
+		if ((i = Util.read()) == '=') {
+			if (inFunc) {
+				StackVar sav = new StackVar(fn.adjust(-((typ.type.size / 8) + (((typ.type.size % 8) == 0) ? 0 : 1))), typ);
+				context.peek().put(s, sav);
+				list.add(new Assignment(sav, Expression.from(';')));
+			}
+			else {
+				list.add(new globalVarDecl(s, typ));
+				NoScopeVar thno = new NoScopeVar(s, typ);
+				HVars.put(s, thno);//Before the assignment so that the assignment can refer the the variable itself, which should contain the default value when dealing with a global variable and whatever data was already there when dealing with a stack variable
+				list.add(new Assignment(thno, Expression.from(';')));//TODO Avoid eventually bringing the number if it is constant
+			}
+		}
+		else if (i == ';') {
+			if (inFunc) {
+				context.peek().put(s, new StackVar(fn.adjust(-((typ.type.size / 8) + (((typ.type.size % 8) == 0) ? 0 : 1))), typ));
+			}
+			else {
+				list.add(new globalVarDecl(s, typ));
+				HVars.put(s, new NoScopeVar(s, typ));
+			}
+		}
+		else if (i == '(') {
+			if (inFunc) {
+				throw new CompilationException("Function declaration not allowed within a function");//TODO maybe implement nested functions: it would be kind of easy, to take advantage of the already-existing stack of function-scoped values
+			}
+			list.add(Function.from(typ, s, HFuncs));
+		}
+		else {
+			throw new CompilationException("Illegal operator: " + new String(new int[]{i}, 0, 1));
 		}
 	}
 }
@@ -340,7 +399,7 @@ class Util {
 	static ArrayList<Integer> brack = new ArrayList<Integer>();
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply"};
 	static ArrayList<String> accesk = new ArrayList<String>();
 	static String[] accese = new String[]{"private", "protected", "public"};
 	static ArrayList<String> boolitk = new ArrayList<String>();
@@ -627,19 +686,29 @@ class Function implements Compilable {
 	FullType retType;
 	String name;//symbol name
 	FullType[] dargs;
-	Doable[] does;
+	Doable[] does;//null if the function represents a function declared outside of the file; non-null otherwise
 	private transient long bpOff = 0;//offset from the base pointer 
 	private long minOff = 0;//lowest value of the offset from the base pointer without processing blocks
 	public final int abiSize;
 	private Function() {
 		abiSize = Compiler.CALL_SIZE_BITS;
 	}
-	private Function(FullType rett, FullType[] ar, Doable[] doz, String nam) {
+	Function(FullType rett, FullType[] ar, Doable[] doz, String nam) {
 		retType = rett;
 		dargs = ar;
 		does = doz;
 		name = nam;
 		abiSize = Compiler.CALL_SIZE_BITS;
+	}
+	Function(FullType rett, FullType[] ar, Doable[] doz, String nam, int siz) throws CompilationException {
+		retType = rett;
+		dargs = ar;
+		does = doz;
+		name = nam;
+		if ((siz != 16) && (siz != 32) && (siz != 64)) {
+			throw new CompilationException("Invalid address size");
+		}
+		abiSize = siz;
 	}
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -667,7 +736,7 @@ class Function implements Compilable {
 		return bpOff;
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
-		Compiler.text.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ": " + this.toString());
+		Compiler.text.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ": " + this.toString() + " " + "call" + abiSize);
 		switch (Compiler.mach) {
 			case (0):
 				Compiler.text.println("pushw %bp");
@@ -789,6 +858,9 @@ class FullType {//Like Type but with possible pointing or running clauses
 		}
 		return true;
 	}
+	public boolean provides(FullType typ) throws NotImplementedException {//if this already serves as an instance of typ without warnings
+		throw new NotImplementedException();
+	}
 	FullType(Type typ) {
 		type = typ;
 		runsWith = null;
@@ -842,15 +914,31 @@ class FullType {//Like Type but with possible pointing or running clauses
 			}
 			catch (IllegalArgumentException E) {
 				if (s.equals("uint")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type name");
+					}
 					typ = Compiler.defUInt;
 				}
 				else if (s.equals("sint") || s.equals("int")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type name");
+					}
 					typ = Compiler.defSInt;
 				}
 				else if (s.equals("float")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type name");
+					}
 					typ = Compiler.def754;
 				}
 				else if (s.equals("addr")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type name");
+					}
 					typ = Compiler.defAdr;
 				}
 				else {
@@ -1054,7 +1142,7 @@ class Call extends Value {
 				Util.warn("Function call provides less bits of data than specified by the function argument(s)");
 			}
 			else if (totalAr > totalFn) {
-				throw new NotImplementedException("The error message has not yet been written");//TODO let compiler warn that this is a raw conversion, even noting this in ways which allow the last argument to be noted to be partially-used (the amount used is noted) when it is
+				throw new NotImplementedException("This error message has not yet been written!");//TODO let compiler warn that this is a raw conversion, even noting this in ways which allow the last argument to be noted to be partially-used (the amount used is noted) when it is
 			}
 			else {
 				StringBuilder sb = new StringBuilder();
@@ -1091,12 +1179,17 @@ class Call extends Value {
 						if (!(t.type.addressable && args[i].type.type.addressable)) {
 							throw new InternalCompilerException("This exceptional condition should not occur!");
 						}
-						if (t.gives != null) {
-							if (t.runsWith == null) {
-								Util.warn("Possible ignorance of specified pointing clause in argument provision for function call");//TODO instead of mentioning the possibility, actually check if the provision is still viable despite inequality (ex. gr. a32*a32$s32(a32) can be provided when a32*a32$s32(a32*u16) is expected) and tell of the ignorance, only if it is not viable
+						if (!(args[i].type.provides(t))) {//TODO implement the instance method FullType.provides(FullType), then change the 2 next error messages to alert to a definite ignorance; this will satisfy the to-do statement on the same line of each, for each
+							if (t.gives != null) {
+								if (t.runsWith == null) {
+									Util.warn("Possible ignorance of specified pointing clause in argument provision for function call");//TODO instead of mentioning the possibility, actually check if the provision is still viable despite inequality (ex. gr. a32*a32$s32(a32) can be provided when a32*a32$s32(a32*u16) is expected) and tell of the ignorance, only if it is not viable
+								}
+								else {
+									Util.warn("Possible ignorance of specified calling clause in argument provision for function call");//TODO instead of mentioning the possibility, actually check if the provision is still viable despite inequality (ex. gr. a32$s32(a32) can be provided when a32$s32(a32*u16) is expected) and tell of the ignorance, only if it is not viable
+								}
 							}
 							else {
-								Util.warn("Possible ignorance of specified calling clause in argument provision for function call");//TODO instead of mentioning the possibility, actually check if the provision is still viable despite inequality (ex. gr. a32$s32(a32) can be provided when a32$s32(a32*u16) is expected) and tell of the ignorance, only if it is not viable
+								throw new InternalCompilerException("This exceptional condition should not occur!");
 							}
 						}
 					}
@@ -1267,7 +1360,7 @@ class globalVarDecl implements Compilable {
 		name = s;
 	}
 	public void compile() throws InternalCompilerException {
-		Compiler.rwdata.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ": " + type.toString() + " " + name);//Automatic documentation, the name should be the same as the symbol name
+		Compiler.rwdata.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ": " + type.toString() + " " + name);//automatic documentation, the name should be the same as the symbol name
 		switch (type.type.size) {
 			case (8):
 				Compiler.rwdata.println(".byte 0x00");
