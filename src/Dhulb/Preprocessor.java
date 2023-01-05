@@ -1,5 +1,7 @@
 package Dhulb;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 
 public class Preprocessor {
