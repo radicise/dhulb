@@ -1,20 +1,74 @@
 package Dhulb;
 import java.io.BufferedReader;
-import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Arrays;
 public class Preprocessor {// takes file stream and the directory path where the files are stored and from which relative paths should be constructed
-    public static void processData (InputStream data, Path cwd, OutputStream out) throws Exception {
-        InputStreamReader inreader = new InputStreamReader(data, StandardCharsets.UTF_8);
-        BufferedReader reader = new BufferedReader(inreader);
+    private static PrintStream printstrm;
+    private static boolean importComments = false;
+    private static boolean passComments = false;
+    private static void preprocess(BufferedReader reader, Path cwd, OutputStream output) throws Exception {
         int cbyte = reader.read();
         boolean test = true;
         while (cbyte != -1) {
+            if (cbyte == '/') {
+                int tbyte = reader.read();
+                if (tbyte == '/' || tbyte == '*') {
+                    if (passComments) {
+                        output.write(cbyte);
+                        output.write(tbyte);
+                    }
+                    cbyte = reader.read();
+                    while (cbyte != -1) {
+                        if (passComments) {
+                            output.write(cbyte);
+                        }
+                        if (tbyte == '*' && cbyte == '*') {
+                            cbyte = reader.read();
+                            if (cbyte == '/') {
+                                if (passComments) {
+                                    output.write(cbyte);
+                                }
+                                cbyte = reader.read();
+                                if (!passComments && Character.isWhitespace(cbyte)) {
+                                    cbyte = reader.read();
+                                }
+                                break;
+                            }
+                            continue;
+                        }
+                        cbyte = reader.read();
+                    }
+                }
+                continue;
+            }
             if (test && cbyte == '#') {
-                String[] line = reader.readLine().split("[\\s]");
-                System.out.println(line[0]);
+                String[] line = reader.readLine().strip().split("[\\s]");
+                printstrm.println(Arrays.toString(line));
+                if (line[1].startsWith("\"")) {
+                    line[1] = line[1].substring(1, line[1].length()-1);
+                }
+                if (line[0].equals("import")) {
+                    printstrm.println(line[1]);
+                    try {
+                        if (importComments) {
+                            output.write(("/* begin imported content from: " + line[1] + " */\n").getBytes());
+                        }
+                        preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(new File(cwd.toString(), line[1])))), cwd, output);
+                        if (importComments) {
+                            output.write(("\n/* end imported content from: " + line[1] + "*/").getBytes());
+                        }
+                    } catch (Exception _E) {
+                        System.err.println("error preprocessing import");
+                        System.exit(1);
+                    }
+                }
+                cbyte = '\n';
             }
             if (!Character.isWhitespace(cbyte)) {
                 test = false;
@@ -22,7 +76,32 @@ public class Preprocessor {// takes file stream and the directory path where the
             if (cbyte == '\n' || cbyte == '\r') {
                 test = true;
             }
+            output.write(cbyte);
             cbyte = reader.read();
         }
+    }
+    public static void main (String[] args) throws Exception {
+        if (args.length > 0 && args[0].equals("--help")) {
+            System.out.println("Usage:\njava Dhulb/Preprocessor [debug-dest|* (no debug)] [options]\n -comment-imports -- marks where imported content begins, ends, and the source file of the imported content\n -pass-comments --passes comments through the preprocessor instead of stripping them");
+            return;
+        }
+        Path cwd = Path.of(System.getenv("PWD"));
+        if (args.length > 0 && !args[0].equals("-")) {
+            printstrm = new PrintStream(new File(cwd.toString(), args[0]));
+        } else {
+            printstrm = new PrintStream(OutputStream.nullOutputStream());
+        }
+        for (int i = 1; i < args.length; i ++) {
+            String arg = args[i];
+            if (arg.equals("-comment-imports")) {
+                importComments = true;
+            } else if (arg.equals("-pass-comments")) {
+                passComments = true;
+            }
+        }
+        OutputStream output = System.out;
+        InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);
+        BufferedReader reader = new BufferedReader(inreader);
+        preprocess(reader, cwd, output);
     }
 }

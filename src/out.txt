@@ -1,0 +1,4 @@
+[import, "x.stub"]
+x.stub
+[import, "y.stub"]
+y.stub

@@ -3,5 +3,7 @@ note that ".stub" files are NOT a part of spec and are not planned to be part of
 the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
 */
 
-#import "x.stub"
-#import "y.stub"
+public struct String {
+    public String ( );
+};
+addr*u32 main ( u32 argc, addr*addr*char argv );
