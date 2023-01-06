@@ -31,8 +31,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
 	public static final long FALSI = 1;
 	public static final long VERIF = 0;
-	public static boolean typeNicksApplicable = true;
-	public static boolean allowTypeNicks = true;
+	public static boolean typeNicksApplicable = false;
+	public static boolean allowTypeNicks = false;
 	public static Type defUInt = Type.u16;
 	public static Type defSInt = Type.s16;
 	public static Type def754 = Type.f32;
@@ -40,8 +40,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static long numericVersion = 2;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
-	public static String stringVersion = "0.0.0.2";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
+	public static long numericVersion = 3;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
+	public static String stringVersion = "0.0.0.3";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
@@ -124,8 +124,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			showCompilationErrorStackTrace = true;
 		}
 		if (argv[1].contains("N")) {
-			allowTypeNicks = false;
-			typeNicksApplicable = false;
+			allowTypeNicks = true;
+			typeNicksApplicable = true;
 		}
 		try {
 			while (true) {
@@ -780,6 +780,7 @@ class Function implements Compilable {
 		while (svs.hasNext()) {
 			sv = svs.next();
 			ad[c] = sv.getValue().type;
+			c++;
 		}
 		fn.dargs = ad;
 		Compiler.context.push(ar);
@@ -859,7 +860,10 @@ class FullType {//Like Type but with possible pointing or running clauses
 		return true;
 	}
 	public boolean provides(FullType typ) throws NotImplementedException {//if this already serves as an instance of typ without warnings
-		throw new NotImplementedException();
+		if (typ.type != this.type) {
+			return false;
+		}
+		throw new NotImplementedException();//TODO finish writing this
 	}
 	FullType(Type typ) {
 		type = typ;
