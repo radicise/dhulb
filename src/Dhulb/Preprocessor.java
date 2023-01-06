@@ -2,6 +2,7 @@ package Dhulb;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -12,6 +13,7 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static PrintStream printstrm;
     private static boolean importComments = false;
     private static boolean passComments = false;
+    private static boolean minimalImport = false;
     private static void preprocess(BufferedReader reader, Path cwd, PrintStream output) throws Exception {
         int cbyte = reader.read();
         boolean test = true;
@@ -53,20 +55,40 @@ public class Preprocessor {// takes file stream and the directory path where the
                 if (line[1].startsWith("\"")) {
                     line[1] = line[1].substring(1, line[1].length()-1);
                 }
-                if (line[0].equals("import")) {
+                if (line[0].equalsIgnoreCase("import")) {
+                    boolean started = false;
+                    if (!minimalImport && line.length > 2 && line[2].equalsIgnoreCase("minimal")) {
+                        started = true;
+                        minimalImport = true;
+                    }
+                    if (minimalImport) {
+                        printstrm.print("minimal: ");
+                    }
                     printstrm.println(line[1]);
                     try {
                         if (importComments) {
                             output.print("/* begin imported content from: " + line[1] + " */\n");
                         }
-                        preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(new File(cwd.toString(), line[1])))), cwd, output);
+                        File f = new File(cwd.toString(), line[1]);
+                        preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Path.of(f.getParent()), output);
                         if (importComments) {
                             output.print("\n/* end imported content from: " + line[1] + "*/");
                         }
+                    } catch (FileNotFoundException FNF) {
+                        printstrm.println("File Not Found: " + line[1]);
+                        output.print("#!missing \"" + line[1] + "\"");
                     } catch (Exception _E) {
                         System.err.println("error preprocessing import");
                         System.exit(1);
                     }
+                    if (started) {
+                        minimalImport = false;
+                    }
+                } else if (line[0].equalsIgnoreCase("utilise")) {
+                    printstrm.println(line[1]);
+                    printstrm.println("NOT IMPLEMENTED USE OF \"utilise\"");
+                    //TODO: implement an assembler
+                    output.print("#!missing \"" + line[1] + "\"");
                 }
                 cbyte = '\n';
             }

@@ -1,4 +1,8 @@
-[import, "x.stub"]
-x.stub
+[import, "folder_test/x.stub", minimal]
+minimal: folder_test/x.stub
+[import, "z.stub"]
+minimal: z.stub
+[import, "../a.stub"]
+minimal: ../a.stub
 [import, "y.stub"]
 y.stub

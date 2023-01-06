@@ -2,6 +2,15 @@
 note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
 the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
 */
+/*
+PWD must be "src"
+COMMAND USED TO TEST THIS IS CURRENTLY:
+cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
+*/
 
-#import "x.stub"
+#import "folder_test/x.stub" minimal
 #import "y.stub"
+
+addr*u32 program ( u32 _, addr*addr*char _ ) {
+    String str = new String();
+}
