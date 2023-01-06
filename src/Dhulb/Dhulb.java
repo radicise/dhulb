@@ -17,11 +17,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Stack;
 import java.util.TreeMap;
-class Dhulb {
-	public static void main(String[] args) throws Exception {
-		Compiler.main(args);
-	}
-}
 class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those)
 	public static PrintStream nowhere;//Never be modified after initial setting
 	public static PrintStream prologue;
@@ -36,8 +31,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
 	public static final long FALSI = 1;
 	public static final long VERIF = 0;
-	public static boolean typeNicksApplicable = true;
-	public static boolean allowTypeNicks = true;
+	public static boolean typeNicksApplicable = false;
+	public static boolean allowTypeNicks = false;
 	public static Type defUInt = Type.u16;
 	public static Type defSInt = Type.s16;
 	public static Type def754 = Type.f32;
@@ -45,15 +40,15 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static long numericVersion = 2;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
-	public static String stringVersion = "0.0.0.2";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
+	public static long numericVersion = 3;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
+	public static String stringVersion = "0.0.0.3";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static void main(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO create a way for an address to be gotten from a named global function
-			nowhere = new PrintStream(OutputStream.nullOutputStream());
+			nowhere = new PrintStream(new File("/dev/null"));//TODO Support for all major systems: "NUL" for Windows, "/dev/null" for POSIX and Linux systems ...
 			prologue = new PrintStream(new BufferedOutputStream(System.out));
 			proback = prologue;
 			epilogue = new PrintStream(new BufferedOutputStream(System.out));
@@ -129,8 +124,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			showCompilationErrorStackTrace = true;
 		}
 		if (argv[1].contains("N")) {
-			allowTypeNicks = false;
-			typeNicksApplicable = false;
+			allowTypeNicks = true;
+			typeNicksApplicable = true;
 		}
 		try {
 			while (true) {
@@ -784,7 +779,8 @@ class Function implements Compilable {
 		int c = 0;
 		while (svs.hasNext()) {
 			sv = svs.next();
-			ad[c++] = sv.getValue().type;
+			ad[c] = sv.getValue().type;
+			c++;
 		}
 		fn.dargs = ad;
 		Compiler.context.push(ar);
@@ -864,7 +860,10 @@ class FullType {//Like Type but with possible pointing or running clauses
 		return true;
 	}
 	public boolean provides(FullType typ) throws NotImplementedException {//if this already serves as an instance of typ without warnings
-		throw new NotImplementedException();
+		if (typ.type != this.type) {
+			return false;
+		}
+		throw new NotImplementedException();//TODO finish writing this
 	}
 	FullType(Type typ) {
 		type = typ;
@@ -980,8 +979,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 			}
 			else {
 				Util.unread(ci);
-				FullType ret = of(typ);
-				return ret;
+				return of(typ);
 			}
 		}
 		catch (UnidentifiableTypeException E) {
@@ -992,7 +990,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 		ArrayList<FullType> fl = new ArrayList<FullType>();
 		Util.skipWhite();
 		int ci = Util.read();
-		if (ci == ending) {
+		if (ci == ')') {
 			return new FullType[0];
 		}
 		Util.unread(ci);
@@ -1000,9 +998,8 @@ class FullType {//Like Type but with possible pointing or running clauses
 			fl.add(from());
 			Util.skipWhite();
 			ci = Util.read();
-			if (ci == ending) {
-				FullType[] ret = fl.toArray(new FullType[fl.size()]);
-				return ret;
+			if (ci == ')') {
+				return fl.toArray(new FullType[0]);
 			}
 			else if (ci != ',') {
 				throw new CompilationException("Unexpected statement");
