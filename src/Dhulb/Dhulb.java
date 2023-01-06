@@ -1,6 +1,7 @@
 package Dhulb;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -47,7 +48,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static void main(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO create a way for an address to be gotten from a named global function
-			nowhere = new PrintStream(OutputStream.nullOutputStream());//TODO Support for all major systems: "NUL" for Windows, "/dev/null" for POSIX and Linux systems ...
+			nowhere = new PrintStream(new NullOutputStream());
 			prologue = new PrintStream(new BufferedOutputStream(System.out));
 			proback = prologue;
 			epilogue = new PrintStream(new BufferedOutputStream(System.out));
@@ -735,7 +736,7 @@ class Function implements Compilable {
 		return bpOff;
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
-		Compiler.text.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ": " + this.toString() + " " + "call" + abiSize);
+		Compiler.text.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ":" + this.toString() + " " + "call" + abiSize);
 		switch (Compiler.mach) {
 			case (0):
 				Compiler.text.println("pushw %bp");
@@ -1363,7 +1364,7 @@ class globalVarDecl implements Compilable {
 		name = s;
 	}
 	public void compile() throws InternalCompilerException {
-		Compiler.rwdata.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ": " + type.toString() + " " + name);//automatic documentation, the name should be the same as the symbol name
+		Compiler.rwdata.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ":" + type.toString() + " " + name);//automatic documentation, the name should be the same as the symbol name
 		switch (type.type.size) {
 			case (8):
 				Compiler.rwdata.println(".byte 0x00");
