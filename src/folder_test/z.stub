@@ -1,0 +1,3 @@
+public struct Array {
+    public u64 length;
+};

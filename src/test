@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cat test.dhulb | java Dhulb/Preprocessor out.txt $@ > final.proc
