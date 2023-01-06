@@ -1,7 +1,6 @@
 package Dhulb;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -48,7 +47,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static void main(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO create a way for an address to be gotten from a named global function
-			nowhere = new PrintStream(new File("/dev/null"));//TODO Support for all major systems: "NUL" for Windows, "/dev/null" for POSIX and Linux systems ...
+			nowhere = new PrintStream(OutputStream.nullOutputStream());//TODO Support for all major systems: "NUL" for Windows, "/dev/null" for POSIX and Linux systems ...
 			prologue = new PrintStream(new BufferedOutputStream(System.out));
 			proback = prologue;
 			epilogue = new PrintStream(new BufferedOutputStream(System.out));
