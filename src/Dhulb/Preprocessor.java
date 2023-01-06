@@ -12,7 +12,7 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static PrintStream printstrm;
     private static boolean importComments = false;
     private static boolean passComments = false;
-    private static void preprocess(BufferedReader reader, Path cwd, OutputStream output) throws Exception {
+    private static void preprocess(BufferedReader reader, Path cwd, PrintStream output) throws Exception {
         int cbyte = reader.read();
         boolean test = true;
         while (cbyte != -1) {
@@ -57,11 +57,11 @@ public class Preprocessor {// takes file stream and the directory path where the
                     printstrm.println(line[1]);
                     try {
                         if (importComments) {
-                            output.write(("/* begin imported content from: " + line[1] + " */\n").getBytes());
+                            output.print("/* begin imported content from: " + line[1] + " */\n");
                         }
                         preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(new File(cwd.toString(), line[1])))), cwd, output);
                         if (importComments) {
-                            output.write(("\n/* end imported content from: " + line[1] + "*/").getBytes());
+                            output.print("\n/* end imported content from: " + line[1] + "*/");
                         }
                     } catch (Exception _E) {
                         System.err.println("error preprocessing import");
@@ -99,7 +99,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                 passComments = true;
             }
         }
-        OutputStream output = System.out;
+        PrintStream output = System.out;
         InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);
         BufferedReader reader = new BufferedReader(inreader);
         preprocess(reader, cwd, output);
