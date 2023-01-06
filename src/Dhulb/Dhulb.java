@@ -17,6 +17,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Stack;
 import java.util.TreeMap;
+class Dhulb {
+	public static void main(String[] args) throws Exception {
+		Compiler.main(args);
+	}
+}
 class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those)
 	public static PrintStream nowhere;//Never be modified after initial setting
 	public static PrintStream prologue;
@@ -48,7 +53,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static void main(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO create a way for an address to be gotten from a named global function
-			nowhere = new PrintStream(new File("/dev/null"));//TODO Support for all major systems: "NUL" for Windows, "/dev/null" for POSIX and Linux systems ...
+			nowhere = new PrintStream(OutputStream.nullOutputStream());
 			prologue = new PrintStream(new BufferedOutputStream(System.out));
 			proback = prologue;
 			epilogue = new PrintStream(new BufferedOutputStream(System.out));
@@ -779,7 +784,7 @@ class Function implements Compilable {
 		int c = 0;
 		while (svs.hasNext()) {
 			sv = svs.next();
-			ad[c] = sv.getValue().type;
+			ad[c++] = sv.getValue().type;
 		}
 		fn.dargs = ad;
 		Compiler.context.push(ar);
@@ -975,7 +980,8 @@ class FullType {//Like Type but with possible pointing or running clauses
 			}
 			else {
 				Util.unread(ci);
-				return of(typ);
+				FullType ret = of(typ);
+				return ret;
 			}
 		}
 		catch (UnidentifiableTypeException E) {
@@ -986,7 +992,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 		ArrayList<FullType> fl = new ArrayList<FullType>();
 		Util.skipWhite();
 		int ci = Util.read();
-		if (ci == ')') {
+		if (ci == ending) {
 			return new FullType[0];
 		}
 		Util.unread(ci);
@@ -994,8 +1000,9 @@ class FullType {//Like Type but with possible pointing or running clauses
 			fl.add(from());
 			Util.skipWhite();
 			ci = Util.read();
-			if (ci == ')') {
-				return fl.toArray(new FullType[0]);
+			if (ci == ending) {
+				FullType[] ret = fl.toArray(new FullType[fl.size()]);
+				return ret;
 			}
 			else if (ci != ',') {
 				throw new CompilationException("Unexpected statement");
