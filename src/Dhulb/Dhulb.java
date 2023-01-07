@@ -89,12 +89,12 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	}
 	public static void ma(String[] argv) throws CompilationException, InternalCompilerException, IOException {//TODO make some system for the compiler to know and manage needed register preservation
 		mach = Integer.parseInt(argv[0]);
-		if ((mach < 0) || (mach >= 3)) {
+		if ((mach != 16) && (mach != 32) && (mach != 64)) {
 			throw new CompilationException("Illegal target");
 		}
 		Compiler.rwdata.println(".data");
 		Compiler.text.println(".text");
-		if (mach == 0) {
+		if (mach == 16) {
 			Compiler.text.println(".code16");
 			CALL_SIZE_BITS = 16;
 			defUInt = Type.u16;
@@ -102,7 +102,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			def754 = Type.f32;
 			defAdr = Type.a16;
 		}
-		else if (mach == 1) {
+		else if (mach == 32) {
 			Compiler.text.println(".code32");
 			CALL_SIZE_BITS = 32;
 			defUInt = Type.u32;
@@ -110,7 +110,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			def754 = Type.f32;
 			defAdr = Type.a32;
 		}
-		else if (mach == 2) {
+		else if (mach == 64) {
+			Compiler.text.println(".code64");
 			CALL_SIZE_BITS = 64;
 			defUInt = Type.u64;
 			defSInt = Type.s64;

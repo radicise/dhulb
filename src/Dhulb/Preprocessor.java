@@ -4,10 +4,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 public class Preprocessor {// takes file stream and the directory path where the files are stored and from which relative paths should be constructed
     private static PrintStream printstrm;
@@ -50,7 +50,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                 continue;
             }
             if (test && cbyte == '#') {
-                String[] line = reader.readLine().strip().split("[\\s]");
+                String[] line = reader.readLine().split("[\\s]");
                 printstrm.println(Arrays.toString(line));
                 if (line[1].startsWith("\"")) {
                     line[1] = line[1].substring(1, line[1].length()-1);
@@ -70,7 +70,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                             output.print("/* begin imported content from: " + line[1] + " */\n");
                         }
                         File f = new File(cwd.toString(), line[1]);
-                        preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Path.of(f.getParent()), output);
+                        preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Paths.get(f.getParent()), output);
                         if (importComments) {
                             output.print("\n/* end imported content from: " + line[1] + "*/");
                         }
@@ -104,16 +104,22 @@ public class Preprocessor {// takes file stream and the directory path where the
     }
     public static void main (String[] args) throws Exception {
         if (args.length > 0 && args[0].equals("--help")) {
-            System.out.println("Usage:\njava Dhulb/Preprocessor [debug-dest|* (no debug)] [options]\n -comment-imports -- marks where imported content begins, ends, and the source file of the imported content\n -pass-comments --passes comments through the preprocessor instead of stripping them");
+            System.out.println("Usage:\njava Dhulb/Preprocessor debug-dest|- (no debug) working-path|- (use the current working directory) [options]\n -comment-imports -- marks where imported content begins, ends, and the source file of the imported content\n -pass-comments --passes comments through the preprocessor instead of stripping them");
             return;
         }
-        Path cwd = Path.of(System.getenv("PWD"));
+        Path cwd;
+        if ((args.length > 1) && (!args[1].equals("-"))) {
+        	cwd = Paths.get(args[1]);
+        }
+        else {
+        	cwd = Paths.get(System.getenv("PWD"));
+        }
         if (args.length > 0 && !args[0].equals("-")) {
             printstrm = new PrintStream(new File(cwd.toString(), args[0]));
         } else {
-            printstrm = new PrintStream(OutputStream.nullOutputStream());
+            printstrm = new PrintStream(new NullOutputStream());
         }
-        for (int i = 1; i < args.length; i ++) {
+        for (int i = 2; i < args.length; i ++) {
             String arg = args[i];
             if (arg.equals("-comment-imports")) {
                 importComments = true;
