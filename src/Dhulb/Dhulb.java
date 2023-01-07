@@ -1,7 +1,6 @@
 package Dhulb;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -79,6 +78,10 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			//TODO epilogue
 			finishStreams();
 			System.exit(3);
+		}
+		catch (Exception e) {
+			e.printStackTrace(System.err);
+			System.exit(4);
 		}
 	}
 	static void finishStreams() {
