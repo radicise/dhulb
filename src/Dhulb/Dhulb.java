@@ -27,7 +27,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static PrintStream rwdatback;
 	public static PrintStream texback;
 	public static PushbackInputStream in = new PushbackInputStream(System.in, 1536);//Do not unread too much
-	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
+	public static int mach = 16;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
 	public static final long FALSI = 1;
 	public static final long VERIF = 0;
 	public static boolean typeNicksApplicable = false;
@@ -91,30 +91,33 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		epilogue.flush();
 	}
 	public static void ma(String[] argv) throws CompilationException, InternalCompilerException, IOException {//TODO make some system for the compiler to know and manage needed register preservation
-		mach = Integer.parseInt(argv[0]);
+		int madec = Integer.parseInt(argv[0]);
 		if ((mach != 16) && (mach != 32) && (mach != 64)) {
 			throw new CompilationException("Illegal target");
 		}
 		Compiler.rwdata.println(".data");
 		Compiler.text.println(".text");
-		if (mach == 16) {
+		if (madec == 16) {
 			Compiler.text.println(".code16");
+			mach = 0;
 			CALL_SIZE_BITS = 16;
 			defUInt = Type.u16;
 			defSInt = Type.s16;
 			def754 = Type.f32;
 			defAdr = Type.a16;
 		}
-		else if (mach == 32) {
+		else if (madec == 32) {
 			Compiler.text.println(".code32");
+			mach = 1;
 			CALL_SIZE_BITS = 32;
 			defUInt = Type.u32;
 			defSInt = Type.s32;
 			def754 = Type.f32;
 			defAdr = Type.a32;
 		}
-		else if (mach == 64) {
+		else if (madec == 64) {
 			Compiler.text.println(".code64");
+			mach = 2;
 			CALL_SIZE_BITS = 64;
 			defUInt = Type.u64;
 			defSInt = Type.s64;
