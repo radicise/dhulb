@@ -1,6 +1,0 @@
-#import "z.stub"
-#import "../a.stub"
-
-public struct String {
-    public String ( );
-};

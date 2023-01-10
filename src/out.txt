@@ -1,8 +1,9 @@
-[import, "folder_test/x.stub", minimal]
-minimal: folder_test/x.stub
-[import, "z.stub"]
-minimal: z.stub
-[import, "../a.stub"]
-minimal: ../a.stub
-[import, "y.stub"]
-y.stub
+Loading Config File:
+LibPath=/Users/tschartman/Documents/GitHub/dhulb/src/DLib
+ExtPath=/Users/tschartman/Documents/GitHub/dhulb/src/DExt
+[import, "arrays"]
+arrays
+[require, "DhulbArray"]
+DhulbArray
+[import, "alloc"]
+alloc
