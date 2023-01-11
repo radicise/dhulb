@@ -1,0 +1,30 @@
+
+
+imply a64 malloc ( u64 count );
+imply ! free ( a32 );
+imply u64 sizeOf ( struct S );
+
+struct Array<T> {
+    a64 address;
+    u64 length;
+    u64 itemSize;
+    Array<T> constructor ( u64 size ) {
+        length = size;
+        itemSize = sizeOf ( T );
+        address = malloc ( size * itemSize );
+    }
+    T getItem ( u64 idx ) {
+        return *(address+(idx*itemSize));
+    }
+    ! setItem ( T item ) {
+        *(address+(idx*itemsize)) = item;
+    }
+    destroy () {
+        free(address);
+    }
+}
+
+u32 program ( u32 _, addr*addr*char _ ) {
+    String str = new String();
+    Array<u32> arr = new Array<u32>(10);
+}

@@ -1,5 +1,6 @@
 package Dhulb;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -7,12 +8,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.channels.Channels;
-import java.nio.channels.Pipe;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
+
+import DExt.DhulbExtension;
 public class Preprocessor {// takes file stream and the directory path where the files are stored and from which relative paths should be constructed
     private static PrintStream printstrm;
     private static boolean importComments = false;
@@ -180,17 +182,20 @@ public class Preprocessor {// takes file stream and the directory path where the
         PrintStream output = System.out;
         InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);
         BufferedReader reader = new BufferedReader(inreader);
-        Pipe mPipe = Pipe.open();
         parseConfig(cfgPath, cwd);
-        InputStream pIn = Channels.newInputStream(mPipe.source());
-        OutputStream pOut = Channels.newOutputStream(mPipe.sink());
-        preprocess(reader, cwd, new PrintStream(Channels.newOutputStream(mPipe.sink())));
+        RecoverableOutputStream rOut = new RecoverableOutputStream();
+        preprocess(reader, cwd, new PrintStream(rOut));
         for (String req : required) {
-            Process p = Runtime.getRuntime().exec("java " + extPath + "/" + req + " ");
-            p.getOutputStream().write(pIn.readNBytes(pIn.available()));
-            p.getOutputStream().close();
-            pOut.write(p.getInputStream().readNBytes(p.getInputStream().available()));
+            @SuppressWarnings("unchecked")
+            Class<? extends DhulbExtension> cls = (Class<? extends DhulbExtension>) Class.forName(extPath.resolve(req).toString().replace(cwd.toString(), "").substring(1).replaceAll("/", "."));
+            Method m = cls.getDeclaredMethod("dothing", new Class[]{InputStream.class, OutputStream.class});
+            InputStream send = new ByteArrayInputStream(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
+            RecoverableOutputStream rec = new RecoverableOutputStream();
+            m.invoke(null, new Object[]{send, rec});
+            rOut.close();
+            rOut = rec;
         }
-        output.write(pIn.readNBytes(pIn.available()));
+        output.write(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
+        rOut.close();
     }
 }
