@@ -8,7 +8,7 @@ COMMAND USED TO TEST THIS IS CURRENTLY:
 cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 */
 
-#import "arrays"
+#import "stdarrays"
 
 u32 program ( u32 _, addr*addr*char _ ) {
     String str = new String();

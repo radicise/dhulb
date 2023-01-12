@@ -1,11 +1,11 @@
 
 
-imply a64 malloc ( u64 count );
-imply ! free ( a32 );
+imply addr malloc ( u64 count );
+imply u8 free ( a32 );
 imply u64 sizeOf ( struct S );
 
 struct Array<T> {
-    a64 address;
+    addr address;
     u64 length;
     u64 itemSize;
     Array<T> constructor ( u64 size ) {
@@ -16,7 +16,7 @@ struct Array<T> {
     T getItem ( u64 idx ) {
         return *(address+(idx*itemSize));
     }
-    ! setItem ( T item ) {
+    void setItem ( T item ) {
         *(address+(idx*itemsize)) = item;
     }
     destroy () {

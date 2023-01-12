@@ -1,3 +1,3 @@
 imply a64 malloc ( u64 count );
 imply ! free ( a32 );
-imply u64 sizeOf ( struct S );
+imply u16 sizeof ( struct S );
