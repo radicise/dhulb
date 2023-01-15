@@ -38,7 +38,7 @@ struct Array<T> {
                 movb (%bp),%al
                 
 
-            #ELIF
+            #ELIF BITS32
                 #error "unsupported"
             #ENDIF
         &/

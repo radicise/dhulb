@@ -1,0 +1,11 @@
+#ifdef NOFLAGTEST
+#elif FLAG1
+/* flag 1 set */
+#info "flag 1 set"
+#elif FLAG2
+/* flag 1 not set, proceeding flag 2 */
+#warn "flag 1 not set, PROCEEDING flag 2"
+#else
+/* flag 1 not set, flag 2 not set */
+#error "flag 1 not set, flag 2 not set"
+#endif

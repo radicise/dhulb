@@ -13,8 +13,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Stack;
 
 import DExt.DhulbExtension;
+class IfdefStackItem {
+    boolean succeeded;
+    IfdefStackItem () {
+        succeeded = false;
+    }
+}
 public class Preprocessor {// takes file stream and the directory path where the files are stored and from which relative paths should be constructed
     private static PrintStream printstrm;
     private static boolean importComments = false;
@@ -22,13 +29,30 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static boolean minimalImport = false;
     private static Path libPath = null;
     private static Path extPath = null;
+    private static Path defPath = null;
     private static HashSet<String> imported = new HashSet<>();
     private static HashSet<String> required = new HashSet<>();
     private static HashSet<String> defined = new HashSet<>();
+    private static Stack<IfdefStackItem> ifdefStack = new Stack<>();
+    private static boolean suppressWarnings = false;
+    private static void info (String msg) {
+        System.err.println("INFO: " + msg);
+    }
+    private static void warning (String msg) {
+        if (suppressWarnings) {
+            return;
+        }
+        System.err.println("WARN: " + msg);
+    }
+    private static void error (String msg) {
+        System.err.println("ERROR:" + msg);
+        System.exit(1);
+    }
     private static void preprocess(BufferedReader reader, Path cwd, PrintStream output) throws Exception {
         int cbyte = reader.read();
         boolean test = true;
         while (cbyte != -1) {
+            boolean startIfdefTypeSkip = false;
             if (cbyte == '/') {
                 int tbyte = reader.read();
                 if (tbyte == '/' || tbyte == '*') {
@@ -61,9 +85,16 @@ public class Preprocessor {// takes file stream and the directory path where the
                 continue;
             }
             if (test && cbyte == '#') {
-                String[] line = reader.readLine().split("[\\s]");
+                String[] manip = reader.readLine().split("\"");
+                for (int i = 1; i < manip.length; i += 2) {
+                    manip[i] = manip[i].replace(' ', '\u0007');
+                }
+                String[] line = String.join("", manip).split("[\\s]");
+                for (int i = 0; i < line.length; i ++) {
+                    line[i] = line[i].replace('\u0007', ' ');
+                }
                 printstrm.println(Arrays.toString(line));
-                if (line[1].startsWith("\"")) {
+                if (line.length > 1 && line[1].startsWith("\"")) {
                     line[1] = line[1].substring(1, line[1].length()-1);
                 }
                 if (line[0].equalsIgnoreCase("import")) {
@@ -115,7 +146,77 @@ public class Preprocessor {// takes file stream and the directory path where the
                 } else if (line[0].equalsIgnoreCase("ifdef")) {
                     boolean isdef = defined.contains(line[1]);
                     printstrm.println("ifdef: " + line[1] + " (" + isdef + ")");
-                    //
+                    ifdefStack.add(new IfdefStackItem());
+                    if (!isdef) {
+                        printstrm.println("ifdef check failed, skipping");
+                        startIfdefTypeSkip = true;
+                    } else {
+                        ifdefStack.peek().succeeded = true;
+                    }
+                } else if (line[0].equalsIgnoreCase("elif")) {
+                    boolean isdef = defined.contains(line[1]);
+                    printstrm.println("elif: " + line[1] + " (" + isdef + ")");
+                    if (ifdefStack.peek().succeeded) {
+                        printstrm.println("elif check failed (else component), skipping");
+                        startIfdefTypeSkip = true;
+                    } else if (!isdef) {
+                        printstrm.println("elif check failed (if component), skipping");
+                        startIfdefTypeSkip = true;
+                    } else {
+                        ifdefStack.peek().succeeded = true;
+                    }
+                } else if (line[0].equalsIgnoreCase("else")) {
+                    if (ifdefStack.peek().succeeded) {
+                        printstrm.println("else check failed");
+                        startIfdefTypeSkip = true;
+                    } else {
+                        ifdefStack.peek().succeeded = true;
+                    }
+                } else if (line[0].equalsIgnoreCase("endif")) {
+                    ifdefStack.pop();
+                } else if (line[0].equalsIgnoreCase("warn")) {
+                    warning(line[1]);
+                } else if (line[0].equalsIgnoreCase("error")) {
+                    error(line[1]);
+                } else if (line[0].equalsIgnoreCase("info")) {
+                    info(line[1]);
+                } else if (line[0].equalsIgnoreCase("define")) {
+                    defined.add(line[1]);
+                }
+                if (startIfdefTypeSkip) {
+                    int cdepth = 0;
+                    while (true) {
+                        String nline = reader.readLine().strip();
+                        if (nline.startsWith("#")) {
+                            int TMP1_spaceIdx = nline.indexOf(" ");
+                            String cmd = nline.substring(1, TMP1_spaceIdx > -1 ? TMP1_spaceIdx : nline.length());
+                            if (cmd.equalsIgnoreCase("ifdef")) {
+                                cdepth ++;
+                            } else if (cmd.equalsIgnoreCase("elif")) {
+                                if (cdepth == 0) {
+                                    if (ifdefStack.peek().succeeded || !defined.contains(nline.split(" ")[1])) { // if check fails then the result would be same is if an independent #ifdef failed, so just continue
+                                        continue;
+                                    }
+                                    ifdefStack.peek().succeeded = true;
+                                    break; // this only is reached if the #elif succeeded, so enter normal success result
+                                }
+                            } else if (cmd.equalsIgnoreCase("else")) {
+                                if (cdepth == 0) {
+                                    if (ifdefStack.peek().succeeded) {
+                                        continue;
+                                    }
+                                    ifdefStack.peek().succeeded = true;
+                                    break;
+                                }
+                            } else if (cmd.equalsIgnoreCase("endif")) {
+                                if (cdepth == 0) {
+                                    ifdefStack.pop();
+                                    break;
+                                }
+                                cdepth --;
+                            }
+                        }
+                    }
                 }
                 cbyte = '\n';
             }
@@ -153,6 +254,10 @@ public class Preprocessor {// takes file stream and the directory path where the
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
                 extPath = Path.of(s);
                 printstrm.println("ExtPath="+s);
+            } else if (defPath == null && line.startsWith("DefPath=")) { // preprocessor name definition path
+                String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
+                defPath = Path.of(s);
+                printstrm.println("DefPath="+s);
             }
         }
     }
@@ -163,7 +268,6 @@ public class Preprocessor {// takes file stream and the directory path where the
         }
         Path cwd = Path.of(System.getenv("PWD"));
         Path cfgPath = Path.of(System.getenv("HOME"), ".dhulb_conf");
-        Path defPath = null;
         if (args.length > 0 && !args[0].equals("-")) {
             printstrm = new PrintStream(new File(cwd.toString(), args[0]));
         } else {
@@ -189,19 +293,21 @@ public class Preprocessor {// takes file stream and the directory path where the
                 defined.add(arg);
             }
         }
+        PrintStream output = System.out;
+        InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);
+        BufferedReader reader = new BufferedReader(inreader);
+        parseConfig(cfgPath, cwd);
         if (defPath != null) {
             FileInputStream fIn = new FileInputStream(new File(defPath.toString()));
+            printstrm.println("reading def path:");
             for (String s : new String(fIn.readAllBytes()).split("\n")) {
-                if (s.length() > 0) {
+                if (s.length() > 0 && !(s.charAt(0) == '#')) {
+                    printstrm.println(s);
                     defined.add(s);
                 }
             }
             fIn.close();
         }
-        PrintStream output = System.out;
-        InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);
-        BufferedReader reader = new BufferedReader(inreader);
-        parseConfig(cfgPath, cwd);
         RecoverableOutputStream rOut = new RecoverableOutputStream();
         preprocess(reader, cwd, new PrintStream(rOut));
         for (String req : required) {

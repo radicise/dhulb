@@ -1,1 +1,6 @@
 BITS16
+
+# flag testing
+NOFLAGTEST
+FLAG1
+FLAG2

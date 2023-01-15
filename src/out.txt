@@ -1,9 +1,16 @@
 Loading Config File:
-LibPath=/Users/tschartman/Documents/GitHub/dhulb/src/DLib
-ExtPath=/Users/tschartman/Documents/GitHub/dhulb/src/DExt
-[import, "arrays"]
-arrays
-[require, "DhulbArray"]
-DhulbArray
-[import, "alloc"]
-alloc
+LibPath=/Users/tristans/Documents/GitHub/dhulb/src/DLib
+ExtPath=/Users/tristans/Documents/GitHub/dhulb/src/DExt
+DefPath=PPD.dhulb_def
+reading def path:
+BITS16
+FLAG1
+FLAG2
+[import, flagtest]
+flagtest
+[ifdef, FLAG1]
+ifdef: FLAG1 (true)
+[info, flag 1 set]
+[elif, FLAG2]
+elif: FLAG2 (true)
+elif check failed (else component), skipping
