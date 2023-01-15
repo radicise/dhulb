@@ -24,6 +24,7 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static Path extPath = null;
     private static HashSet<String> imported = new HashSet<>();
     private static HashSet<String> required = new HashSet<>();
+    private static HashSet<String> defined = new HashSet<>();
     private static void preprocess(BufferedReader reader, Path cwd, PrintStream output) throws Exception {
         int cbyte = reader.read();
         boolean test = true;
@@ -111,6 +112,10 @@ public class Preprocessor {// takes file stream and the directory path where the
                 } else if (line[0].equalsIgnoreCase("require")) {
                     printstrm.println(line[1]);
                     required.add(line[1]);
+                } else if (line[0].equalsIgnoreCase("ifdef")) {
+                    boolean isdef = defined.contains(line[1]);
+                    printstrm.println("ifdef: " + line[1] + " (" + isdef + ")");
+                    //
                 }
                 cbyte = '\n';
             }
@@ -158,6 +163,7 @@ public class Preprocessor {// takes file stream and the directory path where the
         }
         Path cwd = Path.of(System.getenv("PWD"));
         Path cfgPath = Path.of(System.getenv("HOME"), ".dhulb_conf");
+        Path defPath = null;
         if (args.length > 0 && !args[0].equals("-")) {
             printstrm = new PrintStream(new File(cwd.toString(), args[0]));
         } else {
@@ -177,7 +183,20 @@ public class Preprocessor {// takes file stream and the directory path where the
                 libPath = Path.of(arg.split("=",2)[1]);
             } else if (arg.matches("-(ep|EP)=")) {
                 extPath = Path.of(arg.split("=",2)[1]);
+            } else if (arg.matches("-(dp|DP)=")) {
+                defPath = Path.of(arg.split("=",2)[1]);
+            } else {
+                defined.add(arg);
             }
+        }
+        if (defPath != null) {
+            FileInputStream fIn = new FileInputStream(new File(defPath.toString()));
+            for (String s : new String(fIn.readAllBytes()).split("\n")) {
+                if (s.length() > 0) {
+                    defined.add(s);
+                }
+            }
+            fIn.close();
         }
         PrintStream output = System.out;
         InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);

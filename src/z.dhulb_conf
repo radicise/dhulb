@@ -1,2 +1,3 @@
 LibPath=%CWD/DLib
 ExtPath=%CWD/DExt
+DefPath=PPD.dhulb_def
