@@ -82,6 +82,8 @@ public class Preprocessor {// takes file stream and the directory path where the
                         cbyte = reader.read();
                     }
                 }
+                output.write(cbyte);
+                cbyte = tbyte;
                 continue;
             }
             if (test && cbyte == '#') {

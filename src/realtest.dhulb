@@ -4,4 +4,6 @@ CURRENT COMPILE COMMAND:
 cat realtest.dhulb | java Dhulb/Dhulb - 0 > realtest.s
 */
 
+/*#import "stdarrays"*/
+
 u32 program ( u32 argc, a32*a32*u32 argv ) {}

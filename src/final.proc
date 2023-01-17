@@ -1,21 +1,45 @@
-/*
-note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
-the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
-*/
-/*
-PWD must be "src"
-COMMAND USED TO TEST THIS IS CURRENTLY:
-cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
-*/
+struct S {
 
-/*#import "stdarrays"*/
+    addr*<T> address;/* TODO We'll talk about the angls brackets later*/
+*    u32 length;
+    u32 itemSize;
+    addr*Array<T> constructor ( u32 size ) {
+        addr*Array<T> structaddr = malloc(sizeof(Array));
+        structaddr.itemSize = sizeof(T);
+        structaddr.address = malloc(size * sizeof(T));
+        structaddr.length = size;
+        return structaddr;
+    }
+    addr*T getItem ( u32 idx ) {
+        return @(address+(idx*itemSize));
+    }
+    u8 setItem ( T item, u32 idx ) {
+        @(address+(idx*itemsize)) <- item;
+        sizeof(T);
+        /&
+            
+                testw %ax,$0x08
+                jz setItem_size8
+                testw %ax,$0x10
+                jz setItem_size16
+                testw %ax,$0x20
+                jz setItem_size32
+                movw %bp,%sp
+                popw %bp
+                movw $0x01,%ax
+                retw
+                setItem_8:
+                movw 16(%bp),%bx
+                movw (%bx),%bx
+                movw 12(%bp),%cx
+                movw (%ax,%cx,8)
+                movb (%bp),%al
+                
 
-    /* flag 1 set */
-    
-
-
-
-u32 program ( u32 _, addr*addr*char _ ) {
-    String str = new String();
-    u32[] arr = new u32[](10);
+            
+        &/
+    }
+    destroy () {
+        free(address);
+    }
 }

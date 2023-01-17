@@ -1,7 +1,7 @@
 #require "DhulbArray"
 #import "stdalloc"
 
-struct Array<T> {
+class Array<T> {
     addr*<T> address;/* TODO We'll talk about the angls brackets later*/
     u32 length;
     u32 itemSize;
@@ -47,6 +47,6 @@ struct Array<T> {
         free(address);
     }
 }
-struct BigArray<T> {
+class BigArray<T> {
     addr address;
 }
