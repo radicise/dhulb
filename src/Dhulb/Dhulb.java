@@ -7,7 +7,6 @@ import java.io.PrintStream;
 import java.io.PushbackInputStream;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -44,6 +43,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
+	public static TreeMap<String, Structure> structs = new TreeMap<String, Structure>();
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static void main(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO create a way for an address to be gotten from a named global function
@@ -57,7 +57,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			text = new PrintStream(new BufferedOutputStream(System.out));
 			texback = text;
 			//TODO prologue
-			ma(argv);
+			ma(argv);//TODO accept constant macros from the pre-processor
 			prologue = proback;
 			epilogue = epiback;
 			rwdata = rwdatback;
@@ -65,7 +65,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			//TODO epilogue
 			finishStreams();
 		}
-		catch (CompilationException exc) {
+		catch (CompilationException exc) {//TODO prevent declaration of any variable named, "this"
 			prologue = proback;
 			epilogue = epiback;
 			rwdata = rwdatback;
@@ -133,7 +133,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		if (argv[1].contains("N")) {
 			allowTypeNicks = true;
 			typeNicksApplicable = true;
-		}
+		}//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
 		try {
 			while (true) {
 				getCompilable(program, false, null);
@@ -385,10 +385,12 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		else if (i == ';') {
 			if (inFunc) {
 				context.peek().put(s, new StackVar(fn.adjust(-((typ.type.size / 8) + (((typ.type.size % 8) == 0) ? 0 : 1))), typ));
+				Util.warn("Implicit interpretation of undefined data");
 			}
 			else {
 				list.add(new globalVarDecl(s, typ));
 				HVars.put(s, new NoScopeVar(s, typ));
+				Util.warn("Implicit interpretation of zeroed data");
 			}
 		}
 		else if (i == '(') {
@@ -406,13 +408,13 @@ class Util {
 	static ArrayList<Integer> brack = new ArrayList<Integer>();
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval"};
 	static ArrayList<String> accesk = new ArrayList<String>();
-	static String[] accese = new String[]{"private", "protected", "public"};
+	static String[] accese = new String[]{};
 	static ArrayList<String> boolitk = new ArrayList<String>();
 	static String[] boolite = new String[]{"false", "true"};
 	static ArrayList<String> nulitk = new ArrayList<String>();
-	static String[] nulite = new String[]{"null"};
+	static String[] nulite = new String[]{"null", "NULL"};
 	static ArrayList<String> primsk = new ArrayList<String>();
 	static String[] primse = new String[]{"u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "float", "addr", "int"};//TODO remove the platform-dependent aliases, use a plug-in for them instead
 	static ArrayList<Integer> inpork = new ArrayList<Integer>();
@@ -510,12 +512,12 @@ class Util {
 		}
 		return i;
 	}
-	static void unread(String s) throws IOException {
-		byte[] bys = s.getBytes(StandardCharsets.UTF_8);
-		for (int i = bys.length - 1; i >= 0; i--) {
-			Compiler.in.unread(bys[i]);
-		}
-	}
+//	static void unread(String s) throws IOException {
+//		byte[] bys = s.getBytes(StandardCharsets.UTF_8);
+//		for (int i = bys.length - 1; i >= 0; i--) {
+//			Compiler.in.unread(bys[i]);
+//		}
+//	}
 	static void unread(int f) throws IOException {
 		if ((f > 0x10ffff) || (f < 0)) {
 			throw new IOException("Invalid Unicode character");
@@ -689,7 +691,196 @@ class Util {
 		}
 	}
 }
-class Function implements Compilable {
+class Structure {
+	long id;//0 if no ID was specified
+	long length;//if fieldsFinalised, holds the total length, including tail padding; else, holds the length using the current fields minus tail padding
+	long lenUsed;//if fieldsFinalised, holds the length minus the amount of tail padding
+	int alignmentBytes;//byte alignment needed
+	private transient boolean fieldsFinalised;
+	TreeMap<String, StructEntry> fields;
+	TreeMap<String, Function> funcs;//each function has `this' set appropriately for the function, it being the first parameter (hidden), when passing by reference, or a stack variable which holds the logical address offset value (hidden), when passing by value. When passing by value, the field names themselves can also be used because they are declared as fields in the function
+	Structure() {
+		length = 0;
+		alignmentBytes = 1;
+		fields = new TreeMap<String, StructEntry>();
+		funcs = new TreeMap<String, Function>();
+	}
+	Structure(Structure parent) throws InternalCompilerException {
+		if (!(parent.fieldsFinalised)) {
+			throw new InternalCompilerException("Extension of a non-field-finalised class");
+		}
+		length = parent.lenUsed;
+		alignmentBytes = parent.alignmentBytes;
+		for (Map.Entry<String, StructEntry> tn : parent.fields.entrySet()) {
+			fields.put(tn.getKey(), new StructEntry(tn.getValue().offset, tn.getValue().type));
+		}
+		funcs = new TreeMap<String, Function>();
+	}
+	long addField(String nam, FullType t) throws InternalCompilerException {
+		if (fieldsFinalised) {
+			throw new InternalCompilerException("Addition of fields to a field-finalised class");
+		}
+		long l = length + (((length % ((long) (t.type.size / 8))) == 0) ? 0 : (((long) (t.type.size / 8)) - (length % ((long) (t.type.size / 8)))));
+		fields.put(nam, new StructEntry(l, t));
+		if (alignmentBytes < (t.type.size / 8)) {
+			alignmentBytes = (t.type.size / 8);
+		}
+		length = l + (t.type.size / 8);
+		return l;
+	}
+	void finishFields() throws NotImplementedException {
+		fieldsFinalised = true;
+		lenUsed = length;
+		length += (((length % ((long) alignmentBytes)) == 0) ? 0 : (((long) alignmentBytes) - (length % ((long) alignmentBytes))));
+	}
+	static Structure from() throws CompilationException, InternalCompilerException, IOException {
+		Util.skipWhite();
+		int i = Util.read();
+		Structure st = null;
+		long id = 0;
+		if (i != '{') {
+			Util.unread(i);
+			String n = Util.phrase(0x21);
+			if (n.equals("extends")) {
+				Util.skipWhite();
+				String nam = Util.phrase(0x21);
+				st = Compiler.structs.get(nam);
+				if (st == null) {
+					throw new CompilationException("Class not found: " + nam);
+				}
+				Util.skipWhite();
+				i = Util.read();
+				if (i != '{') {
+					Util.unread(i);
+					if (!(Util.phrase(0x21).equals("id"))) {
+						throw new CompilationException("Illegal or unidentifiable keyword: " + n);
+					}
+					Util.skipWhite();
+					id = Long.decode(Util.phrase(0x21));
+					Util.skipWhite();
+					if ((i = Util.read()) != '{') {
+						throw new CompilationException("Unexpected operator at start of class body: " + new String(new int[]{i}, 0, 1));
+					}
+				}
+			}
+			else if (n.equals("id")) {
+				Util.skipWhite();
+				id = Long.decode(Util.phrase(0x21));
+				Util.skipWhite();
+				if ((i = Util.read()) != '{') {
+					throw new CompilationException("Unexpected operator at start of class body: " + new String(new int[]{i}, 0, 1));
+				}
+			}
+			else {
+				throw new CompilationException("Unexpected operator at start of class body: " + new String(new int[]{i}, 0, 1));
+			}
+		}
+		if (st == null) {
+			st = new Structure();
+		}
+		else {
+			st = new Structure(st);
+		}
+		st.id = id;
+		boolean mif = true;
+		String sr;
+		FullType ft;
+		boolean nof = true;
+		boolean iaf = false;
+		boolean byref = true;
+		i = Util.read();
+		if (i == '}') {
+			st.finishFields();
+			return st;
+		}
+		Util.unread(i);
+		while (true) {//TODO implement specificity
+			Util.skipWhite();
+			i = Util.read();
+			if (i == ';') {
+				if (mif) {
+					throw new CompilationException("Unexpected operator: ;");
+				}
+				st.finishFields();
+				break;
+			}
+			Util.unread(i);
+			ft = FullType.from();
+			Util.skipWhite();
+			sr = Util.phrase(0x3d);
+			Util.skipWhite();
+			if (nof) {
+				if (sr.equals("byref") || sr.equals("byval")) {
+					st.finishFields();
+					iaf = true;
+					byref = sr.equals("byref");
+					sr = Util.phrase(0x3d);
+					if (!(Util.legalIdent(sr))) {
+						throw new CompilationException("Illegal identifier: " + sr);
+					}
+					i = Util.read();
+					if (i != '(') {
+						throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
+					}
+					break;
+				}
+			}
+			if (!(Util.legalIdent(sr))) {
+				throw new CompilationException("Illegal identifier: " + sr);//could be for a field or, when there are no fields, the first function
+			}
+			if (nof) {
+				i = Util.read();
+				if (i == '(') {
+					st.finishFields();
+					iaf = true;
+					break;
+				}
+				Util.unread(i);
+			}
+			st.addField(sr, ft);
+			mif = false;
+			nof = false;
+			i = Util.read();
+			if (i == ',') {
+				mif = true;
+			}
+			else if (i == ';') {
+				Util.unread(i);
+			}
+			else {
+				throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
+			}
+		}
+		if (iaf) {//starts after the opening parenthesis
+			if (byref) {
+				
+			}
+			else {
+				throw new NotImplementedException();
+			}
+		}
+		//TODO not allow function with same name as field
+		
+		
+		
+		//TODO dhulbDoc
+		
+		
+		
+		
+		
+		throw new NotImplementedException();
+	}
+}
+class StructEntry {
+	long offset;
+	FullType type;
+	StructEntry(long off, FullType typ) {
+		offset = off;
+		type = typ;
+	}
+}
+class Function implements Compilable {//TODO maybe warn when the code may reach the end of the function without returning
 	FullType retType;
 	String name;//symbol name
 	FullType[] dargs;
@@ -765,14 +956,22 @@ class Function implements Compilable {
 		}
 		for (Doable d : does) {
 			d.compile();
-		}
-		//don't implicitly return at the end of the function body; force the programmer to make sure that nothing reaches the end without a return statement unless they actually want the function to not exit properly in those cases
+		}//don't implicitly return at the end of the function body; the programmer needs to make sure that nothing reaches the end without a return statement unless they actually want the function to not exit properly in those cases
 	}
-	static Function from(FullType rett, String nam, TreeMap<String, Function> funcs) throws NotImplementedException, CompilationException, InternalCompilerException, IOException {//starts at the parameters, first thing is the first non-whitespace character after the opening parenthesis (whitespace before it allowed), consumes everything up to the closing curly brace, inclusive
+	static Function from(FullType rett, String nam, TreeMap<String, Function> funcs) throws NotImplementedException, CompilationException, InternalCompilerException, IOException {
+		return from(rett, nam, funcs, null);
+	}
+	static Function from(FullType rett, String nam, TreeMap<String, Function> funcs, LinkedHashMap<String, FullType> ext) throws NotImplementedException, CompilationException, InternalCompilerException, IOException {//starts at the parameters, first thing is the first non-whitespace character after the opening parenthesis (whitespace before it allowed), consumes everything up to the closing curly brace, inclusive
 		Function fn = new Function();
 		fn.retType = rett;
 		fn.name = nam;
-		LinkedHashMap<String, StackVar> ar = FullType.getArgs(')', fn.abiSize);
+		LinkedHashMap<String, StackVar> ar;
+		if (ext == null) {
+			ar = FullType.getArgs(')', fn.abiSize);
+		}
+		else {
+			ar = FullType.getArgs(')', fn.abiSize, ext);
+		}
 		funcs.put(nam, fn);
 		Util.skipWhite();
 		int i = Util.read();
@@ -867,6 +1066,9 @@ class FullType {//Like Type but with possible pointing or running clauses
 		return true;
 	}
 	public boolean provides(FullType typ) throws NotImplementedException {//if this already serves as an instance of typ without warnings
+		if (this.equals(typ)) {
+			return true;
+		}
 		if (typ.type != this.type) {
 			return false;
 		}
@@ -1014,7 +1216,10 @@ class FullType {//Like Type but with possible pointing or running clauses
 			Util.skipWhite();
 		}
 	}
-	static LinkedHashMap<String, StackVar> getArgs(int ending, long abiSize) throws UnidentifiableTypeException, CompilationException, InternalCompilerException, IOException {//gets list of comma-delimited fullType entries, ended with the ending character (there is no comma after the last entry) (0-length allowed) (whitespace allowed)
+	static LinkedHashMap<String, StackVar> getArgs(int ending, long abiSize) throws UnidentifiableTypeException, CompilationException, InternalCompilerException, IOException {
+		return getArgs(ending, abiSize, null);
+	}
+	static LinkedHashMap<String, StackVar> getArgs(int ending, long abiSize, LinkedHashMap<String, FullType> ext) throws UnidentifiableTypeException, CompilationException, InternalCompilerException, IOException {//gets list of comma-delimited fullType entries, ended with the ending character (there is no comma after the last entry) (0-length allowed) (whitespace allowed)
 		LinkedHashMap<String, StackVar> fl = new LinkedHashMap<String, StackVar>();
 		FullType ft;
 		String nam;
@@ -1040,6 +1245,17 @@ class FullType {//Like Type but with possible pointing or running clauses
 			Util.skipWhite();
 			ci = Util.read();
 			if (ci == ')') {
+				if (ext != null) {
+					for (Map.Entry<String, FullType> et : ext.entrySet()) {
+						nam = et.getKey();//identifier legality is unchecked, this is on purpose
+						ft = et.getValue();
+						if (fl.containsKey(nam)) {
+							throw new CompilationException("Duplicate argument name in function declaration: " + nam);
+						}
+						fl.put(nam, new StackVar(from, ft));
+						from += (((ft.type.size) / 8L) + (((ft.type.size % 8L) == 0) ? 0L : 1L));
+					}
+				}
 				return fl;
 			}
 			else if (ci != ',') {
@@ -1300,7 +1516,7 @@ class Call extends Value {
 		Compiler.text.println("callq (%rax)");
 	}
 }
-enum Type {
+enum Type {//EVERY Type MUST have its `size' be a positive number that is evenly divisible by 8
 	u8 (8),
 	s8 (8),
 	u16 (16),
@@ -1456,6 +1672,30 @@ class Literal extends Value {
 		return type;
 	}
 }
+class Casting extends Operator {
+	//'a', as, raw conversion
+	//'t', to, cast
+	FullType from;
+	FullType to;
+	boolean raw;
+	Casting(boolean r, FullType f, FullType t) {
+		super(true, r ? 'a' : 't');
+		raw = r;
+		from = f;
+		to = t;
+	}
+	FullType apply(FullType typ) throws NotImplementedException {
+		if (raw) {
+			if (from.type.size < to.type.size) {
+				throw new NotImplementedException();
+			}
+		}
+		else {
+			from.cast(to);
+		}
+		return to;
+	}
+}
 class Operator extends Item {
 	static final Operator ADD = new Operator(false, '+');//("+") Arithmetic addition
 	static final Operator SUB = new Operator(false, '-');//("-") Arithmetic subtraction
@@ -1479,6 +1719,9 @@ class Operator extends Item {
 		id = ident;
 	}
 	FullType apply(FullType typ) throws InternalCompilerException {//Unary; The value has already been brought
+		if (this instanceof Casting) {
+			return ((Casting) this).apply(typ);
+		}
 		if (!(unary)) {
 			throw new InternalCompilerException("Not a unary operator: " + this.toString());
 		}
@@ -1732,7 +1975,7 @@ class FunctionAddr extends Value {
 class Expression extends Value {
 	transient boolean auxEnding;
 	private ArrayList<Item> items;
-	private boolean finalised;
+	private transient boolean finalised;
 	private Expression() {
 		items = new ArrayList<Item>();
 		finalised = false;
@@ -1817,7 +2060,7 @@ class Expression extends Value {
 				last = oprt.apply(last, vail);
 			}
 		}
-		return ((Value) ite).type;
+		return last;
 	}
 	static Expression from(int ending) throws InternalCompilerException, IOException, CompilationException {
 		return from(ending, null);
@@ -1831,8 +2074,7 @@ class Expression extends Value {
 		Expression ex = new Expression();
 		Item last = null;
 		if (pri != null) {
-			ex.add(pri);
-			last = pri;
+			ex.add(last = pri);
 		}
 		while (true) {
 			Util.skipWhite();
@@ -1865,7 +2107,7 @@ class Expression extends Value {
 			}
 			else {
 				Util.unread(tg);
-				String s = Util.phrase(0x2f);
+				String s = Util.phrase(0x2f);//do NOT change from 0x2f without updating the delimiter likewise for the cast / conversion chain checking for when performing a cast / conversion
 				Literal lit;
 				if (Util.legalIdent(s)) {
 					Util.skipWhite();
@@ -1896,30 +2138,97 @@ class Expression extends Value {
 					}
 				}
 				else {
-					try {
-						lit = Util.getLit(s);
-						ex.add(last = lit);
+					if ((s.equals("as")) || (s.equals("to"))) {
+						boolean raw = s.equals("as");
+						if (raw) {
+							Util.warn("Raw conversion");
+						}
+						if (!(last instanceof Value)) {
+							throw new CompilationException(raw ? "Raw conversion of an operator" : "Casting of an operator");
+						}
+						Util.skipWhite();
+						FullType fto = FullType.from();
+						Util.skipWhite();
+						int ir = Util.read();
+						if (ir == '(') {
+							Util.unread(ir);
+							Value ra = (Value) last;
+							ex.skim(ra);
+							Expression en = new Expression();
+							en.add(ra);
+							en.add(new Casting(raw, ra.type, fto));
+							en.finalised = true;
+							ex.add(last = en);
+						}
+						else {
+							boolean de = true;
+							int a0 = 0;
+							int a1 = 0;
+							try {
+								a0 = Util.read();
+							}
+							catch (EOFException E) {
+								Util.unread(ir);
+								de = false;
+							}
+							if (de) {
+								try {
+									a1 = Util.read();
+								}
+								catch (EOFException E) {
+									Util.unread(a0);
+									Util.unread(ir);
+									de = false;
+								}
+								if (de) {
+									if ((((ir == 'a') && (a0 == 's')) || ((ir == 't') && (a0 == 'o'))) && (Character.isWhitespace(a1) || Util.brack.contains(a1) || (a1 == ',') || (a1 == ';') || Util.inpork.contains(a1))) {
+										Util.unread(a1);
+										Util.unread(a0);
+										Util.unread(ir);
+										Value ra = (Value) last;
+										ex.skim(ra);
+										Expression en = new Expression();
+										en.add(ra);
+										en.add(new Casting(raw, ra.type, fto));
+										en.finalised = true;
+										ex.add(last = en);
+									}
+									else {
+										Util.unread(a1);
+										Util.unread(a0);
+										Util.unread(ir);
+										ex.add(last = new Casting(raw, ((Value) last).type, fto));
+									}
+								}
+							}
+						}
 					}
-					catch (NumberFormatException e) {
-						if (s.length() != 0) {
-							throw new CompilationException("Invalid statement: " + s);
-						}//Not an expression, function call, symbol, or literal
-						int i = Util.read();
-						switch (i) {
-							case ('+'):
-								ex.add(last = Operator.ADD);
-								break;
-							case ('-'):
-								ex.add(last = Operator.SUB);
-								break;
-							case ('*'):
-								ex.add(last = Operator.MUL);
-								break;
-							case ('/'):
-								ex.add(last = Operator.DIV);
-								break;
-							default:
-								throw new NotImplementedException();
+					else {
+						try {
+							lit = Util.getLit(s);
+							ex.add(last = lit);
+						}
+						catch (NumberFormatException e) {
+							if (s.length() != 0) {
+								throw new CompilationException("Invalid statement: " + s);
+							}//Not an expression, function call, symbol, or literal
+							int i = Util.read();
+							switch (i) {
+								case ('+'):
+									ex.add(last = Operator.ADD);
+									break;
+								case ('-'):
+									ex.add(last = Operator.SUB);
+									break;
+								case ('*'):
+									ex.add(last = Operator.MUL);
+									break;
+								case ('/'):
+									ex.add(last = Operator.DIV);
+									break;
+								default:
+									throw new NotImplementedException();
+							}
 						}
 					}
 				}
