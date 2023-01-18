@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-public class DhulbArray extends DhulbExtension {
+public class DhulbArray {
     private static String types = "(u32|u64)";
     public static void dothing (InputStream inp, OutputStream out) throws Exception {
         BufferedReader input = new BufferedReader(new InputStreamReader(inp));

@@ -1,0 +1,5 @@
+#import "stdalloc"
+
+class String {
+    String constructor (addr*u8 str) {}
+}
