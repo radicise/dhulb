@@ -1,0 +1,54 @@
+/*
+ * sysmem.dhulb
+ * Created by root on UTC 2022-01-18_01:02:06.810019082
+ */
+/*
+ * LINUX_KERNEL_I386 value is defined in the decimal format: VVPPSSSEE
+ * VV: VERSION
+ * PP: PATCHLEVEL
+ * SSS: SUBLEVEL
+ * EE: EXTRALEVEL
+ */
+addr allocate(int amntBytes) {
+	#ifdef KERNEL_LINUX_I386
+		#ifge LINUX_KERNEL_I386, 020400000
+			#ife OPERAND_BITS, 32
+				#ifne ADDRESS_BITS, 32
+					#error "Unsupported address size"
+				#endif
+				/&
+					pushl %ebx
+					pushl $0x00000000
+					pushl $0xffffffff
+					pushl $0x00000021
+					pushl $0x00000003
+					pushl 8(%ebp)
+					pushl $0x00000000
+					movl %esp,%ebx
+					movl $90,%eax
+					int $0x80
+					cmpl $0xfffff000,%eax
+					ja allocate_lin32_err
+					addl $0x18,%esp
+					popl %ebx
+					popl %ebp
+					ret
+					allocate_lin32_err:
+					addl $0x18,%esp
+					popl %ebx
+					popl %ebp
+					xorl %eax,%eax
+					ret
+				&/
+			#else
+				#error "Unsupported target operand size"
+			#endif
+		#else
+			#error "Unsupported Linux kernel version (kernel version must be 2.4 or above)"
+		#endif
+	#elseif NOKERNEL
+		#error "A target kernel is needed"
+	#else
+		#error "Unsupported target kernel"
+	#endif	
+}
