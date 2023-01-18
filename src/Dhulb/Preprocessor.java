@@ -127,7 +127,8 @@ public class Preprocessor {// takes file stream and the directory path where the
                             }
                         } catch (FileNotFoundException FNF) {
                             printstrm.println("File Not Found: " + line[1]);
-                            throw new Exception("Could not find file:" + line[1]);
+                            throw FNF;
+                            // throw new Exception("Could not find file:" + line[1]);
                         } catch (Exception _E) {
                             System.err.println("error preprocessing import");
                             _E.printStackTrace(System.err);

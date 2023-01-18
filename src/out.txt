@@ -7,23 +7,7 @@ BITS16
 NOFLAGTEST
 FLAG1
 FLAG2
-[import, stdarrays]
-stdarrays
-[require, DhulbArray]
-DhulbArray
-[import, stdalloc]
-stdalloc
-[IFDEF, BITS16]
-ifdef: BITS16 (true)
-[ELIF, BITS32]
-elif: BITS32 (false)
-elif check failed (else component), skipping
-[import, flagtest]
-flagtest
-[ifdef, NOFLAGTEST]
-ifdef: NOFLAGTEST (true)
-[elif, FLAG1]
-elif: FLAG1 (true)
-elif check failed (else component), skipping
+[require, DhulbStdClasses]
+DhulbStdClasses
 [require, DhulbStdRedirect]
 DhulbStdRedirect

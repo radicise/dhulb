@@ -8,14 +8,18 @@ COMMAND USED TO TEST THIS IS CURRENTLY:
 cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 */
 
-#import "stdarrays"
-#import "flagtest"
+/*#import "stdarrays"*/
+/*#import "flagtest"*/
 
+#require "DhulbStdClasses"
 #require "DhulbStdRedirect"
 
 class Dummy {
     Array<u8> y;
     *redirect x -> y.length;
+    Dummy constructor () {
+        /**/
+    }
 }
 
 u32 program ( u32 _, addr*addr*char _ ) {

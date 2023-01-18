@@ -11,9 +11,9 @@
  */
 addr allocate(int amntBytes) {
 	#ifdef KERNEL_LINUX_I386
-		#ifge LINUX_KERNEL_I386, 020400000
-			#ife OPERAND_BITS, 32
-				#ifne ADDRESS_BITS, 32
+		#if LINUX_KERNEL_I386 >= 020400000
+			#if OPERAND_BITS == 32
+				#if ADDRESS_BITS != 32
 					#error "Unsupported address size"
 				#endif
 				/&
@@ -46,7 +46,7 @@ addr allocate(int amntBytes) {
 		#else
 			#error "Unsupported Linux kernel version (kernel version must be 2.4 or above)"
 		#endif
-	#elseif NOKERNEL
+	#elif NOKERNEL
 		#error "A target kernel is needed"
 	#else
 		#error "Unsupported target kernel"
