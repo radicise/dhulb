@@ -11,16 +11,8 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 /*#import "stdarrays"*/
 /*#import "flagtest"*/
 
-#require "DhulbStdClasses"
-#require "DhulbStdRedirect"
-
-class Dummy {
-    Array<u8> y;
-    *redirect x -> y.length;
-    Dummy constructor () {
-        /**/
-    }
-}
+/*#require "DhulbStdClasses"*/
+/*#require "DhulbStdRedirect" defunct*/
 
 u32 program ( u32 _, addr*addr*char _ ) {
     String str = new String();

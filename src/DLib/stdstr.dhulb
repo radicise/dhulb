@@ -1,5 +1,34 @@
+#require "stdclasses"
 #import "stdalloc"
 
 class String {
-    String constructor (addr*u8 str) {}
+    u8[] characters;
+    u32 length;
+    u32 capacity;
+    String constructor (addr*u8 str) {
+        addr*String structaddr = malloc(sizeof(String));
+        u32 result = 0;
+        str;
+        /&
+        movl %ax,%eax
+        _core_std_String_constructor_primitive_address_bounds_find_loop_head:
+        testw %ax,$0x00
+        jz _core_std_String_constructor_primitive_address_bounds_find_tail
+        inc %ax
+        jmp _core_std_String_constructor_primitive_address_bounds_find_loop_head
+        _core_std_String_constructor_primitive_address_bounds_find_tail:
+        dec %ax
+        subl %ax,%eax
+        mov %ax,%eax
+        &/
+        result;
+        /&
+        storel %eax,%ax
+        &/
+        structaddr.length = result;
+        structaddr.capacity = structaddr.length;
+        structaddr.characters = new u8[structaddr.length];
+        #error "not implemented"
+        return structaddr;
+    }
 }
