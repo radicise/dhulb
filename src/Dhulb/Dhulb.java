@@ -41,8 +41,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static long numericVersion = 3;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
-	public static String stringVersion = "0.0.0.3";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
+	public static long numericVersion = 00_00_01_00;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
+	public static String stringVersion = "0.0.1.0";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
