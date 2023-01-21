@@ -11,14 +11,17 @@ class String {
         str;
         /&
         movw %ax,%di
-        xorw %ax,%ax
+        xorb %al,%al
         movw %ds,%es
         xorw %cx,%cx
+	notw %cx
+	cld
         repnz
         scasb
-        xorw %cx,$0xffff
         movw %cx,-4(%bp)
         &/
+	/*result is the length (including the null byte), unless it is zero, in which case the null byte could not be found*/
+	/*NOTE: The %di might have overflowed during the scan, leading to an unreliable value in `result'*/
         structaddr.length = result;
         structaddr.capacity = structaddr.length;
         structaddr.characters = new u8[structaddr.length];
