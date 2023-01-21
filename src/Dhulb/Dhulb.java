@@ -14,7 +14,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Stack;
+import java.util.StringJoiner;
 import java.util.TreeMap;
+import java.util.function.BiConsumer;
+import java.util.function.IntConsumer;
 class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those)
 	public static PrintStream nowhere;//Never be modified after initial setting
 	public static PrintStream prologue;
@@ -26,7 +29,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static PrintStream rwdatback;
 	public static PrintStream texback;
 	public static PushbackInputStream in = new PushbackInputStream(System.in, 1536);//Do not unread too much
-	public static int mach = 16;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
+	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
 	public static final long FALSI = 1;
 	public static final long VERIF = 0;
 	public static boolean typeNicksApplicable = false;
@@ -92,9 +95,6 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	}
 	public static void ma(String[] argv) throws CompilationException, InternalCompilerException, IOException {//TODO make some system for the compiler to know and manage needed register preservation
 		int madec = Integer.parseInt(argv[0]);
-		if ((mach != 16) && (mach != 32) && (mach != 64)) {
-			throw new CompilationException("Illegal target");
-		}
 		Compiler.rwdata.println(".data");
 		Compiler.text.println(".text");
 		if (madec == 16) {
@@ -155,7 +155,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		Util.skipWhite();
 		i = Util.read();
 		if (i == '}') {
-			throw new BlockEndException();
+			throw new BlockEndException("Unexpected end-of-block");
 		}
 		else if (i == '{') {
 			throw new NotImplementedException();//TODO support for blocks (saves stack space)
@@ -239,7 +239,14 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		}
 		catch (UnidentifiableTypeException utt) {
 			s = utt.verbatim;//s = phrase(0x2d)
-			if (Util.legalIdent(s)) {
+			if (s.equals("class")) {
+				Util.skipWhite();
+				String naam = Util.phrase(0x3d);
+				Structure st = Structure.from(naam);
+				Compiler.structs.put(naam, st);
+				list.add(st);
+			}
+			else if (Util.legalIdent(s)) {
 				Storage st = null;
 				if (inFunc) {
 					for (Map<String, StackVar> cn : context) {
@@ -279,7 +286,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						Util.skipWhite();
 						FullType ft = FullType.from();
 						Util.skipWhite();
-						String r = Util.phrase(0x3d);
+						String r = Util.phrase(0x3d);//identifier legality is not checked for, this is on purpose
 						Util.skipWhite();
 						int ne = Util.read();
 						if (ne == '(') {
@@ -351,6 +358,9 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		if (!(Util.legalIdent(s))) {
 			throw new CompilationException("Illegal identifier: " + s);
 		}
+		if (Util.nondefk.contains(s)) {
+			throw new CompilationException("Reserved identifier: " + s);
+		}
 		if (inFunc) {
 			for (Map<String, StackVar> cn : context) {
 				if (cn.containsKey(s)) {
@@ -361,11 +371,11 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		else {
 			NoScopeVar coll = HVars.get(s);
 			if (coll != null) {
-				throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with " + coll.toString());
+				throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with global variable " + coll.toString());
 			}
 			Function collf = HFuncs.get(s);
 			if (collf != null) {
-				throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with " + collf.toString());
+				throw new CompilationException("Symbol collision: " + typ + " " + s + " conflicts with global function " + collf.toString());
 			}
 		}
 		Util.skipWhite();
@@ -419,6 +429,14 @@ class Util {
 	static String[] primse = new String[]{"u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "float", "addr", "int"};//TODO remove the platform-dependent aliases, use a plug-in for them instead
 	static ArrayList<Integer> inpork = new ArrayList<Integer>();
 	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$'};
+	static ArrayList<String> nondefk = new ArrayList<String>();
+	static String[] nondefe = new String[]{"this"};
+	static ArrayList<Integer> idesk = new ArrayList<Integer>();
+	static int[] idese = new int[]{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '_'};
+	static ArrayList<Integer> idepk = new ArrayList<Integer>();
+	static int[] idepe = new int[]{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '_', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+	static ArrayList<Integer> alphak = new ArrayList<Integer>();
+	static int[] alphae = new int[]{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
 	static {
 		for (int c : brace) {
 			brack.add(c);
@@ -441,8 +459,72 @@ class Util {
 		for (int c : inpore) {
 			inpork.add(c);
 		}
+		for (String s : nondefe) {
+			nondefk.add(s);
+		}
+		for (int c : idese) {
+			idesk.add(c);
+		}
+		for (int c : idepe) {
+			idepk.add(c);
+		}
+		for (int c : alphae) {
+			alphak.add(c);
+		}
 	}
 	private Util() {
+	}
+	static String escape(String term) {
+		StringBuilder sb = new StringBuilder();
+		term.codePoints().iterator().forEachRemaining(new IntConsumer() {
+			public void accept(int c) {
+				if (Util.alphak.contains(c)) {
+					sb.appendCodePoint(c);
+				}
+				else {
+					if (c < 0x80) {
+						sb.append('_');
+						sb.appendCodePoint(alphae[c & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 4) & 0x0f]);
+					}
+					else if (c < 0x10000) {
+						sb.append('_');
+						sb.append('u');
+						sb.appendCodePoint(alphae[c & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 4) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 8) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 12) & 0x0f]);
+					}
+					else {
+						sb.append('_');
+						sb.append('v');
+						sb.appendCodePoint(alphae[c & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 4) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 8) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 12) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 16) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 20) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 24) & 0x0f]);
+						sb.appendCodePoint(alphae[(c >>> 28) & 0x0f]);
+					}
+				}
+			}
+		});
+		return sb.toString();
+	}
+	static String escape(String[] terms) throws InternalCompilerException {
+		if (terms.length == 0) {
+			throw new InternalCompilerException("No strings to escape");
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append(escape(terms[0]));
+		int i = 1;
+		while (i < terms.length) {
+			sb.append("__");
+			sb.append(escape(terms[i]));
+			i++;
+		}
+		return sb.toString();
 	}
 	static String signedRestrict(long val, int size) throws SizeNotFitException, InternalCompilerException {
 		switch (size) {
@@ -599,7 +681,7 @@ class Util {
 			sr.write(h);
 		}
 	}
-	static boolean legalIdent(String s) throws IOException {
+	static boolean legalIdent(String s) throws IOException {//dollar signs are not allowed in names
 		if (s.length() == 0) {
 			return false;
 		}
@@ -608,7 +690,7 @@ class Util {
 		}
 		int c = 0;
 		int h = s.codePointAt(c);
-		if (!(Character.isJavaIdentifierStart(h))) {//TODO don't depend on Java specification
+		if (!(idesk.contains(h))) {
 			return false;
 		}
 		if (h > 0xffff) {
@@ -617,7 +699,7 @@ class Util {
 		c++;
 		try {
 			while (true) {
-				if (!(Character.isJavaIdentifierPart(h = s.codePointAt(c)))) {//TODO don't depend on Java specification
+				if (!(idepk.contains(h = s.codePointAt(c)))) {
 					return false;
 				}
 				if (h > 0xffff) {
@@ -691,31 +773,35 @@ class Util {
 		}
 	}
 }
-class Structure {//TODO allow use of the structured byte before field definitions are complete
-	StructuredType type;
-	long id;//0 if no ID was specified
+class Structure implements Compilable {//TODO allow use of the structured byte before field definitions are complete
+	StructuredType type;//do not change field values of this; equality operator should not be used for equality checks
+	FullType fulltype;//do not change field values of this; equality operator should not be used for equality checks
+	private long id;//0 if no ID was specified
 	long length;//if fieldsFinalised, holds the total length, including tail padding; else, holds the length using the current fields minus tail padding
 	long lenUsed;//if fieldsFinalised, holds the length minus the amount of tail padding
 	int alignmentBytes;//byte alignment needed
 	private transient boolean fieldsFinalised;
-	TreeMap<String, StructEntry> fields;
-	TreeMap<String, Function> funcs;//each function has `this' set appropriately for the function, it being the first parameter (hidden), when passing by reference, or a stack variable which holds the logical address offset value (hidden), when passing by value. When passing by value, the field names themselves can also be used because they are declared as fields in the function
-	Structure() {
+	String name;
+	LinkedHashMap<String, StructEntry> fields;
+	LinkedHashMap<String, Function> funcs;//each function has `this' set appropriately for the function, it being the leftmost parameter (hidden), when passing by reference, or a stack variable which holds the logical address offset value (hidden), when passing by value. When passing by value, the field names themselves can also be used because they are declared as fields in the function
+	private Structure() {
 		length = 0;
 		alignmentBytes = 1;
-		fields = new TreeMap<String, StructEntry>();
-		funcs = new TreeMap<String, Function>();
+		fields = new LinkedHashMap<String, StructEntry>();
+		funcs = new LinkedHashMap<String, Function>();
 	}
-	Structure(Structure parent) throws InternalCompilerException {
+	private Structure(Structure parent) throws InternalCompilerException {
 		if (!(parent.fieldsFinalised)) {
 			throw new InternalCompilerException("Extension of a non-field-finalised class");
 		}
 		length = parent.lenUsed;
 		alignmentBytes = parent.alignmentBytes;
-		for (Map.Entry<String, StructEntry> tn : parent.fields.entrySet()) {
-			fields.put(tn.getKey(), new StructEntry(tn.getValue().offset, tn.getValue().type));
-		}
-		funcs = new TreeMap<String, Function>();
+		parent.fields.forEach(new BiConsumer<String, StructEntry>() {
+			public void accept(String s, StructEntry se) {
+				fields.put(s, new StructEntry(se.offset, se.type));
+			}
+		});
+		funcs = new LinkedHashMap<String, Function>();
 	}
 	boolean fieldsFinalised() {
 		return fieldsFinalised;
@@ -737,7 +823,10 @@ class Structure {//TODO allow use of the structured byte before field definition
 		lenUsed = length;
 		length += (((length % ((long) alignmentBytes)) == 0) ? 0 : (((long) alignmentBytes) - (length % ((long) alignmentBytes))));
 	}
-	static Structure from() throws CompilationException, InternalCompilerException, IOException {
+	long getID() {
+		return id;
+	}
+	static Structure from(String name) throws CompilationException, InternalCompilerException, IOException {//TODO decide whether the functions are referenced through a function that has the escaped name (using `Compiler.HFuncs') or the function having having the name as a key in `funcs' (doing the former would allow instance methods to be declared solely by using the escaped name)
 		Util.skipWhite();
 		int i = Util.read();
 		Structure st = null;
@@ -785,13 +874,15 @@ class Structure {//TODO allow use of the structured byte before field definition
 		else {
 			st = new Structure(st);
 		}
+		st.name = name;
 		st.id = id;
 		boolean mif = true;
-		String sr;
-		FullType ft;
+		String sr = null;
+		FullType ft = null;
 		boolean nof = true;
 		boolean iaf = false;
 		boolean byref = true;
+		Util.skipWhite();
 		i = Util.read();
 		if (i == '}') {
 			st.finishFields();
@@ -822,6 +913,9 @@ class Structure {//TODO allow use of the structured byte before field definition
 					if (!(Util.legalIdent(sr))) {
 						throw new CompilationException("Illegal identifier: " + sr);
 					}
+					if (Util.nondefk.contains(sr)) {
+						throw new CompilationException("Reserved identifier: " + sr);
+					}
 					i = Util.read();
 					if (i != '(') {
 						throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
@@ -832,6 +926,9 @@ class Structure {//TODO allow use of the structured byte before field definition
 			if (!(Util.legalIdent(sr))) {
 				throw new CompilationException("Illegal identifier: " + sr);//could be for a field or, when there are no fields, the first function
 			}
+			if (Util.nondefk.contains(sr)) {
+				throw new CompilationException("Reserved identifier: " + sr);
+			}
 			if (nof) {
 				i = Util.read();
 				if (i == '(') {
@@ -840,6 +937,9 @@ class Structure {//TODO allow use of the structured byte before field definition
 					break;
 				}
 				Util.unread(i);
+			}
+			if (st.fields.containsKey(sr)) {
+				throw new CompilationException("Duplicate structural type field name: " + sr);
 			}
 			st.addField(sr, ft);
 			mif = false;
@@ -855,34 +955,93 @@ class Structure {//TODO allow use of the structured byte before field definition
 				throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
 			}
 		}
-		st.type = new StructuredType(st);
+		st.fulltype = FullType.of(st.type = new StructuredType(st));
 		if (iaf) {//starts after the opening parenthesis
-			if (byref) {
-				
+			if (st.fields.containsKey(sr)) {
+				throw new CompilationException("Class method has the same name as a field of the instance's structural type");
+			}
+			aiherghre(st, sr, ft, byref);
+		}
+		while (true) {
+			Util.skipWhite();
+			i = Util.read();
+			if (i == '}') {
+				break;
+			}
+			Util.unread(i);
+			ft = FullType.from();
+			Util.skipWhite();
+			sr = Util.phrase(0x3d);
+			if ((sr.equals("byref")) || (sr.equals("byval"))) {
+				byref = sr.equals("byref");
+				Util.skipWhite();
+				sr = Util.phrase(0x3d);
 			}
 			else {
-				throw new NotImplementedException();
+				byref = true;
 			}
+			if (Util.nondefk.contains(sr)) {
+				throw new CompilationException("Reserved identifier: " + sr);
+			}
+			if (!(Util.legalIdent(sr))) {
+				throw new CompilationException("Illegal identifier for class method: " + sr);
+			}
+			if (st.fields.containsKey(sr)) {
+				throw new CompilationException("Class method has the same name as a field of the instance's structural type");
+			}
+			Util.skipWhite();
+			i = Util.read();
+			if (i != '(') {
+				throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
+			}
+			aiherghre(st, sr, ft, byref);
 		}
-		//TODO not allow function with same name as field
-		
-		
-		
-		//TODO dhulbDoc
-		
-		
-		
-		
-		
-		throw new NotImplementedException();
+		return st;
+	}
+	public String toString() {
+		StringJoiner sj = new StringJoiner(",", name, "");
+		fields.forEach(new BiConsumer<String, StructEntry>() {
+			public void accept(String s, StructEntry se) {
+				sj.add(" " + se.type + " " + s);
+			}
+		});
+		return sj.toString();
+	}
+	public void compile() throws CompilationException, InternalCompilerException, IOException {
+		Compiler.text.println("/*dhulbDoc-v" + Compiler.numericVersion + ":structure;" + toString() + ";*/");
+		for (Map.Entry<String, Function>  sf: funcs.entrySet()) {
+			sf.getValue().compile();
+		}
+	}
+	private static void aiherghre(Structure st, String sr, FullType ft, boolean byref) throws CompilationException, InternalCompilerException, IOException {
+		if (byref) {
+			LinkedHashMap<String, FullType> sf = new LinkedHashMap<String, FullType>();
+			sf.put("this", new FullType(Compiler.defAdr, st.fulltype));
+			String nn = "___structfunc__" + Util.escape(new String[]{st.name, sr});
+			Function stf = Function.from(ft, nn, st.funcs, sf);
+			Compiler.HFuncs.put(nn, new Function(ft, stf.dargs, null, nn));
+		}
+		else {
+			throw new NotImplementedException();
+		}
 	}
 }
-class StructEntry {
-	long offset;
-	FullType type;
+class StructEntry implements Comparable<StructEntry> {
+	final long offset;
+	final FullType type;
 	StructEntry(long off, FullType typ) {
 		offset = off;
 		type = typ;
+	}
+	public boolean equals(Object obj) {
+		if (obj instanceof StructEntry) {
+			return offset == ((StructEntry) obj).offset;
+		}
+		return this == obj;
+	}
+	public int compareTo(StructEntry to) {
+		long diff = offset - to.offset;
+		return (diff == 0L) ? 0 : ((diff > 0L) ? 1 : 0);
 	}
 }
 class Function implements Compilable {//TODO maybe warn when the code may reach the end of the function without returning
@@ -939,9 +1098,9 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 		return bpOff;
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
-		Compiler.text.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ":" + this.toString() + " " + "call" + abiSize);
-		switch (Compiler.mach) {
-			case (0):
+		Compiler.text.println(name + ":/*dhulbDoc-v" + Compiler.numericVersion + ":function;" + this.toString() + " " + "call" + abiSize + ";*/");
+		switch (abiSize) {
+			case (16):
 				Compiler.text.println("pushw %bp");
 				Compiler.text.println("movw %sp,%bp");
 				if (minOff > 0) {
@@ -951,10 +1110,10 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 					Compiler.text.println("subw $" + Util.signedRestrict(bpOff, 16) + ",%sp");
 				}
 				break;
-			case (1):
+			case (32):
 				Compiler.text.println("pushl %ebp");
 				Compiler.text.println("movl %esp,%ebp");
-			case (2):
+			case (64):
 				throw new NotImplementedException();
 			default:
 				throw new InternalCompilerException("Unidentifiable target");
@@ -966,7 +1125,7 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 	static Function from(FullType rett, String nam, TreeMap<String, Function> funcs) throws NotImplementedException, CompilationException, InternalCompilerException, IOException {
 		return from(rett, nam, funcs, null);
 	}
-	static Function from(FullType rett, String nam, TreeMap<String, Function> funcs, LinkedHashMap<String, FullType> ext) throws NotImplementedException, CompilationException, InternalCompilerException, IOException {//starts at the parameters, first thing is the first non-whitespace character after the opening parenthesis (whitespace before it allowed), consumes everything up to the closing curly brace, inclusive
+	static Function from(FullType rett, String nam, Map<String, Function> funcs, LinkedHashMap<String, FullType> ext) throws NotImplementedException, CompilationException, InternalCompilerException, IOException {//starts at the parameters, first thing is the first non-whitespace character after the opening parenthesis (whitespace before it allowed), consumes everything up to the closing curly brace, inclusive
 		Function fn = new Function();
 		fn.retType = rett;
 		fn.name = nam;
@@ -1244,8 +1403,11 @@ class FullType {//Like Type but with possible pointing or running clauses
 			ft = from();
 			Util.skipWhite();
 			nam = Util.phrase(0x3d);
-			if (!Util.legalIdent(nam)) {
+			if (!(Util.legalIdent(nam))) {
 				throw new CompilationException("Illegal identifier: " + nam);
+			}
+			if (Util.nondefk.contains(nam)) {
+				throw new CompilationException("Reserved identifier: " + nam);
 			}
 			if (fl.containsKey(nam)) {
 				throw new CompilationException("Duplicate argument name in function declaration: " + nam);
@@ -1334,7 +1496,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 				case a16:
 					if (!(toType.type.size() == 16)) {
 						throw new NotImplementedException();
-					}//TODO warn is the cast is not provisional
+					}//TODO warn if the cast is not provisional
 					break;
 				default:
 					throw new NotImplementedException();
@@ -1552,6 +1714,9 @@ class StructuredType implements Typed {
 		}
 		struct = st;
 	}
+	public String toString() {
+		return struct.name;
+	}
 }
 enum Type implements Typed {
 	u8 (8),
@@ -1630,7 +1795,7 @@ class globalVarDecl implements Compilable {
 		name = s;
 	}
 	public void compile() throws InternalCompilerException {
-		Compiler.rwdata.println(name + ": #dhulbDoc-v" + Compiler.numericVersion + ":" + type.toString() + " " + name);//automatic documentation, the name should be the same as the symbol name
+		Compiler.rwdata.println(name + ":/*dhulbDoc-v" + Compiler.numericVersion + ":globalvar;" + type.toString() + " " + name + ";*/");//automatic documentation, the name should be the same as the symbol name
 		switch (type.type.size()) {
 			case (8):
 				Compiler.rwdata.println(".byte 0x00");
@@ -1716,12 +1881,10 @@ class Literal extends Value {
 	}
 }
 class Casting extends Operator {
-	//'a', as, raw conversion
-	//'t', to, cast
 	FullType from;
 	FullType to;
 	boolean raw;
-	Casting(boolean r, FullType f, FullType t) {
+	Casting(boolean r, FullType f, FullType t) {//'a', as, raw conversion; 't', to, cast
 		super(true, r ? 'a' : 't');
 		raw = r;
 		from = f;
@@ -2330,6 +2493,9 @@ class UnidentifiableTypeException extends CompilationException {
 class BlockEndException extends CompilationException {
 	BlockEndException() {
 		super();
+	}
+	BlockEndException(String reas) {
+		super(reas);
 	}
 }
 @SuppressWarnings("serial")
