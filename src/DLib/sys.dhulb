@@ -1,0 +1,31 @@
+/*
+ * sys.dhulb
+ * Created on 2023-01-24
+ */
+/*
+ * int exit(int)
+ * arg0: Exit code
+ * returns: 1
+ *
+ * Notes: This function does not return
+ */
+int exit(int code) {
+	#ifdef KERNEL_LINUX_I386
+		#if OPERAND_BITS >= 32
+			code;
+			/&
+				movl %eax,%ebx
+				xorl %eax,%eax
+				incl %eax
+				int $0x80
+			&/
+		#else
+			#error "Unsupported operand size for the target kernel"
+		#endif
+	#elif NOKERNEL
+		#error "A target kernel is needed"
+	#else
+		#error "Unsupported target kernel
+	#endif
+	return 1;/*This should not be reached*/
+}
