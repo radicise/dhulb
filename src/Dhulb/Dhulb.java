@@ -18,6 +18,26 @@ import java.util.StringJoiner;
 import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
+class Dhulb {
+	public static void main(String[] argv) throws IOException, InternalCompilerException {
+		if (argv[0].equals("--help")) {
+				System.out.println("Invocation:\n"
+						+ "dhulbc 16|32|64 -[t][N]\n"
+						+ "\n"
+						+ "\n"
+						+ "Argument description:\n"
+						+ "\n"
+						+ "\n"
+						+ "Argument 0: The instruction set used; \"16\" utilises that of the 8086 and generates code for it, \"32\" does the same for that of 80386 and and generates code for it, and \"64\" does the same for AMD64\n"
+						+ "\n"
+						+ "Argument 1: Each optional character used represents a flag being set. Usage is as follows:\n"
+						+ "\tt\tPrints the compiler's stack trace upon compilation errors\n"
+						+ "\tN\tEnables usage of platform-dependent type names");
+			return;
+		}
+		Compiler.mai(argv);//TODO prevent declaration of non-pointed structurally-typed variables
+	}
+}
 class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those)
 	public static PrintStream nowhere;//Never be modified after initial setting
 	public static PrintStream prologue;
@@ -49,7 +69,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static TreeMap<String, Structure> structs = new TreeMap<String, Structure>();
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static boolean noViewErrors = false;
-	public static void main(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
+	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO implement bulk memory movement syntax
 			try {//TODO create a way for an address to be gotten from a named global function
 				nowhere = new PrintStream(new NullOutputStream());
@@ -710,8 +730,12 @@ class Util {
 			throw new InternalCompilerException("Pushback-based un-reading inconsistency");
 		}
 	}
-	static Literal getLit(String s) throws NumberFormatException, InternalCompilerException {//TODO support manually defining the type
-		return new Literal(FullType.of(Compiler.defSInt), Long.decode(s));//TODO support unsigned 64-bit literals above Long.MAX_VALUE
+	static Literal getLit(String s) throws CompilationException, NumberFormatException, InternalCompilerException {//TODO support manually defining the type
+		long l = Long.decode(s);
+		if (!(Compiler.defSInt.fits(l, true))) {
+			throw new CompilationException("Datum type of literal cannot hold its specified value");
+		}
+		return new Literal(FullType.of(Compiler.defSInt), l);//TODO support unsigned 64-bit literals above Long.MAX_VALUE
 	}
 	private static int tread() throws IOException {// Use this for UTF-8 instead of anything relying on StreamDecoder that caches characters
 		int g;
@@ -1343,7 +1367,7 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 					throw new InternalCompilerException("This exceptional condition should not occur!");
 				}
 				else if (minOff < 0) {
-					Compiler.text.println("subw $" + Util.signedRestrict(minOff, 16) + ",%sp");
+					Compiler.text.println("subw $" + Util.signedRestrict(-minOff, 16) + ",%sp");
 				}
 				break;
 			case (32):
@@ -1353,7 +1377,7 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 					throw new InternalCompilerException("This exceptional condition should not occur!");
 				}
 				else if (minOff < 0) {
-					Compiler.text.println("subl $" + Util.signedRestrict(minOff, 33) + ",%esp");
+					Compiler.text.println("subl $" + Util.signedRestrict(-minOff, 33) + ",%esp");
 				}
 				break;
 			case (64):
@@ -1967,7 +1991,9 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 	}
 	static void after16_16(long pb) throws SizeNotFitException, InternalCompilerException {
 		try {
-			Compiler.text.println("addw $" + Util.signedRestrict(pb / 8L, 16) + ",%sp");
+			if (pb != 0) {
+				Compiler.text.println("addw $" + Util.signedRestrict(pb / 8L, 16) + ",%sp");
+			}
 		}
 		catch (SizeNotFitException e) {
 			throw new SizeNotFitException("Stack pointer restoration after function call does not abide by addressing mode limitations", e);
@@ -1975,7 +2001,9 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 	}
 	static void after32_32(long pb) throws SizeNotFitException, InternalCompilerException {
 		try {
-			Compiler.text.println("addl $" + Util.signedRestrict(pb / 8L, 33) + ",%esp");
+			if (pb != 0) {
+				Compiler.text.println("addl $" + Util.signedRestrict(pb / 8L, 33) + ",%esp");
+			}
 		}
 		catch (SizeNotFitException e) {
 			throw new SizeNotFitException("Stack pointer restoration after function call does not abide by addressing mode limitations", e);
@@ -2070,35 +2098,74 @@ class StructuredType implements Typed {
 		return struct.name;
 	}
 }
-enum Type implements Typed {
-	u8 (8),
-	s8 (8),
-	u16 (16),
-	s16 (16),
-	u32 (32),
-	s32 (32),
-	u64 (64),
-	s64 (64),
-	f32 (32),
-	f64 (64),
-	a16 (16, true),
-	a32 (32, true),
-	a64 (64, true);
+enum Type implements Typed {//only sizes of 8, 16, 32, and 64 are accepted
+	u8 (8, false, false),
+	s8 (8, false, true),
+	u16 (16, false, false),
+	s16 (16, false, true),
+	u32 (32, false, false),
+	s32 (32, false, true),
+	u64 (64, false, false),
+	s64 (64, false, true),
+	f32 (32, true, true),
+	f64 (64, true, true),
+	a16 (16, true, false, false),
+	a32 (32, true, false, false),
+	a64 (64, true, false, false);
 	final int size;
 	final boolean addressable;
-	Type(int s) {
+	final boolean floating;
+	final boolean signed;
+	Type(int s, boolean f, boolean signd) {
 		size = s;
 		addressable = false;
+		floating = f;
+		signed = signd;
 	}
-	Type(int s, boolean addrsable) {
+	Type(int s, boolean addrsable, boolean f, boolean signd) {
 		size = s;
 		addressable = addrsable;
+		floating = f;
+		signed = signd;
 	}
 	public int size() {
 		return size;
 	}
 	public boolean addressable() {
 		return addressable;
+	}
+	boolean fits(long l, boolean s) throws NotImplementedException {//the boolean expresses if the passed long's bits should be interpreted as signed
+		if (floating) {
+			throw new NotImplementedException();
+		}
+		if (s) {
+			if (signed) {
+				if (size == 64) {
+					return true;
+				}
+				return (((0x01L << (size - 1)) > l) && ((-(0x01L << (size - 1))) <= l));
+			}
+			else {
+				if (size == 64) {
+					return (l >= 0);
+				}
+				return ((l >= 0) && ((0x01L << size) > l));
+			}
+		}
+		else {
+			if (signed) {
+				if (size == 64) {
+					return (l >= 0);
+				}
+				return ((l >= 0) && (((0x8000000000000000L >> (64 - size)) & l) == 0L));
+			}
+			else {
+				if (size == 64) {
+					return true;
+				}
+				return (((0x8000000000000000L >> (64 - size - 1)) & l) == 0L);
+			}
+		}
 	}
 }
 abstract class Item {
@@ -2435,7 +2502,22 @@ class NoScopeVar extends Value implements Storage {
 				}
 				break;
 			case (1):
-				throw new NotImplementedException();
+				switch (type.type.size()) {
+					case (64):
+						Compiler.text.println("movl %edx," + name + "+4(,1)");
+					case (32):
+						Compiler.text.println("movw %eax," + name + "(,1)");
+						break;
+					case (16):
+						Compiler.text.println("movw %ax," + name + "(,1)");
+						break;
+					case (8):
+						Compiler.text.println("movb %al," + name + "(,1)");
+						break;
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+			break;
 			case (2):
 				throw new NotImplementedException();
 			default:
@@ -2462,7 +2544,22 @@ class NoScopeVar extends Value implements Storage {
 				}
 				break;
 			case (1):
-				throw new NotImplementedException();
+				switch (type.type.size()) {
+					case (64):
+						Compiler.text.println("movl " + name + "+4(,1),%edx");
+					case (32):
+						Compiler.text.println("movl " + name + "(,1),%eax");
+						break;
+					case (16):
+						Compiler.text.println("movw " + name + "(,1),%ax");
+						break;
+					case (8):
+						Compiler.text.println("movb " + name + "(,1),%al");
+						break;
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+				break;
 			case (2):
 				throw new NotImplementedException();
 			default:
@@ -2833,6 +2930,7 @@ class Expression extends Value {
 							en.add(ra);
 							en.add(new Casting(raw, ra.type, fto));
 							en.finalised = true;
+							en.type = fto;
 							ex.add(last = en);
 						}
 						else {
@@ -2866,6 +2964,7 @@ class Expression extends Value {
 										en.add(ra);
 										en.add(new Casting(raw, ra.type, fto));
 										en.finalised = true;
+										en.type = fto;
 										ex.add(last = en);
 									}
 									else {
