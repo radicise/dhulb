@@ -26,7 +26,7 @@ int exit(int code) {
 	#elifdef NOKERNEL
 		#error "A target kernel is needed"
 	#else
-		#error "Unsupported target kernel
+		#error "Unsupported target kernel"
 	#endif
 	return 1;/*This should not be reached*/
 }

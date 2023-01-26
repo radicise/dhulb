@@ -1,0 +1,87 @@
+/*
+note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
+the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
+*/
+/*
+PWD must be "src"
+COMMAND USED TO TEST THIS IS CURRENTLY:
+cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
+*/
+
+/*#import "stdarrays"*/
+/*#import "flagtest"*/
+/*
+ * sysmem.dhulb
+ * Created by root on UTC 2022-01-18_01:02:06.810019082
+ */
+addr allocate(int amntBytes) {
+	
+		
+			
+				
+				/&
+					pushl %ebx
+					pushl $0x00000000
+					pushl $0xffffffff
+					pushl $0x00000021
+					pushl $0x00000003
+					pushl 8(%ebp)
+					pushl $0x00000000
+					movl %esp,%ebx
+					movl $90,%eax
+					int $0x80
+					cmpl $0xfffff000,%eax
+					ja allocate_lin32_err
+					addl $0x18,%esp
+					popl %ebx
+					movl %ebp,%esp # not needed if ebx was the first thing in stack space after the base pointer
+					popl %ebp
+					ret
+					allocate_lin32_err:
+					addl $0x18,%esp
+					popl %ebx
+					movl %ebp,%esp
+					popl %ebp
+					xorl %eax,%eax
+					ret
+				&/
+			
+		
+	
+}
+
+/*
+ * sys.dhulb
+ * Created on 2023-01-24
+ */
+/*
+ * @Dhulb
+ * int exit(int)
+ * arg0: Exit code
+ * returns: 1
+ *
+ * Notes: This function does not return
+ */
+int exit(int code) {
+	
+		
+			code;
+			/&
+				movl %eax,%ebx
+				xorl %eax,%eax
+				incl %eax
+				int $0x80
+			&/
+		
+	
+	return 1;/*This should not be reached*/
+}
+
+
+/*#require "DhulbStdClasses"*/
+/*#require "DhulbStdRedirect" defunct*/
+
+u32 program ( u32 _, addr*addr*char _ ) {
+    /*String str = new String();*/
+    u32[] arr = new u32[](10);
+}

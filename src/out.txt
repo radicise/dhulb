@@ -7,12 +7,36 @@ BITS16
 KERNEL_LINUX_I386=020400000
 OPERAND_BITS=32
 CALL_BITS=32
+NOKERNEL
 NOFLAGTEST
 FLAG1
 FLAG2
+[import, sysmem]
+sysmem
+[ifdef, KERNEL_LINUX_I386]
+ifdef: KERNEL_LINUX_I386 (true)
+[if, KERNEL_LINUX_I386, >=, 020400000]
+elif: 20400000>=020400000 (true)
+[if, OPERAND_BITS, ==, 32]
+elif: 32==32 (true)
+[if, CALL_BITS, !=, 32]
+elif: 32!=32 (false)
+if check failed, skipping
+[else]
+else check failed
+[else]
+else check failed
+[elifdef, NOKERNEL]
+elifdef: NOKERNEL (true)
+elifdef check failed (else component), skipping
 [import, sys]
 sys
 [ifdef, KERNEL_LINUX_I386]
-ifdef: KERNEL_LINUX_I386 (false)
-ifdef check failed, skipping
-[error, Unsupported operand size for the target kernel]
+ifdef: KERNEL_LINUX_I386 (true)
+[if, OPERAND_BITS, >=, 32]
+elif: 32>=32 (true)
+[else]
+else check failed
+[elifdef, NOKERNEL]
+elifdef: NOKERNEL (true)
+elifdef check failed (else component), skipping

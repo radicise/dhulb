@@ -69,7 +69,8 @@ public class Preprocessor {// takes file stream and the directory path where the
             boolean startIfdefTypeSkip = false;
             if (cbyte == '/') {
                 int tbyte = reader.read();
-                if (tbyte == '/' || tbyte == '*') {
+                // if (tbyte == '/' || tbyte == '*') {
+                if (tbyte == '*') {
                     if (passComments) {
                         output.write(cbyte);
                         output.write(tbyte);
@@ -79,12 +80,13 @@ public class Preprocessor {// takes file stream and the directory path where the
                         if (passComments) {
                             output.write(cbyte);
                         }
-                        if (tbyte == '*' && cbyte == '*') {
+                        if (cbyte == '*') {
                             cbyte = reader.read();
                             if (cbyte == '/') {
                                 if (passComments) {
                                     output.write(cbyte);
                                 }
+                                // cbyte = '\n';
                                 cbyte = reader.read();
                                 if (!passComments && Character.isWhitespace(cbyte)) {
                                     cbyte = reader.read();
@@ -95,9 +97,10 @@ public class Preprocessor {// takes file stream and the directory path where the
                         }
                         cbyte = reader.read();
                     }
+                } else {
+                    output.write(cbyte);
+                    cbyte = tbyte;
                 }
-                output.write(cbyte);
-                cbyte = tbyte;
                 continue;
             }
             if (test && cbyte == '#') {
@@ -175,6 +178,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                         throw new Exception("Attempted to compare the value of a preprocessor variable that does not exist");
                     }
                     boolean cmpRes = parseIf(line);
+                    printstrm.println("elif: " + String.join("", Arrays.copyOfRange(line, 1, line.length)) + " (" + cmpRes + ")");
                     ifdefStack.add(new IfdefStackItem());
                     if (!cmpRes) {
                         printstrm.println("if check failed, skipping");
@@ -184,6 +188,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                     }
                 } else if (line[0].equalsIgnoreCase("elif")) {
                     boolean cmpRes = parseIf(line);
+                    printstrm.println("elif: " + String.join("", Arrays.copyOfRange(line, 1, line.length)) + " (" + cmpRes + ")");
                     if (ifdefStack.peek().succeeded) {
                         printstrm.println("elif check failed (else component), skipping");
                         startIfdefTypeSkip = true;
@@ -195,12 +200,12 @@ public class Preprocessor {// takes file stream and the directory path where the
                     }
                 } else if (line[0].equalsIgnoreCase("elifdef")) {
                     boolean isdef = defined.containsKey(line[1]);
-                    printstrm.println("elif: " + line[1] + " (" + isdef + ")");
+                    printstrm.println("elifdef: " + line[1] + " (" + isdef + ")");
                     if (ifdefStack.peek().succeeded) {
-                        printstrm.println("elif check failed (else component), skipping");
+                        printstrm.println("elifdef check failed (else component), skipping");
                         startIfdefTypeSkip = true;
                     } else if (!isdef) {
-                        printstrm.println("elif check failed (if component), skipping");
+                        printstrm.println("elifdef check failed (if component), skipping");
                         startIfdefTypeSkip = true;
                     } else {
                         ifdefStack.peek().succeeded = true;
@@ -340,7 +345,8 @@ public class Preprocessor {// takes file stream and the directory path where the
             } else if (arg.matches("-(dp|DP)=")) {
                 defPath = Path.of(arg.split("=",2)[1]);
             } else {
-                defined.put(arg, arg.contains("=") ? Integer.parseInt(arg.split("=")[1]) : 1);
+                boolean isa = arg.contains("=");
+                    defined.put(isa ? arg.split("=")[0] : arg, isa ? Integer.parseInt(arg.split("=")[1]) : 1);
             }
         }
         PrintStream output = System.out;
@@ -353,7 +359,8 @@ public class Preprocessor {// takes file stream and the directory path where the
             for (String s : new String(fIn.readAllBytes()).split("\n")) {
                 if (s.length() > 0 && !(s.charAt(0) == '#')) {
                     printstrm.println(s);
-                    defined.put(s, s.contains("=") ? Integer.parseInt(s.split("=")[1]) : 1);
+                    boolean isa = s.contains("=");
+                    defined.put(isa ? s.split("=")[0] : s, isa ? Integer.parseInt(s.split("=")[1]) : 1);
                 }
             }
             fIn.close();
