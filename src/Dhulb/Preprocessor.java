@@ -12,8 +12,12 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
+
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
 
 import DExt.DhulbExtension;
 class IfdefStackItem {
@@ -32,9 +36,10 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static Path defPath = null;
     private static HashSet<String> imported = new HashSet<>();
     private static HashSet<String> required = new HashSet<>();
-    private static HashSet<String> defined = new HashSet<>();
+    private static HashMap<String, Integer> defined = new HashMap<>();
     private static Stack<IfdefStackItem> ifdefStack = new Stack<>();
     private static boolean suppressWarnings = false;
+    private static ScriptEngine javaScriptEngine = new ScriptEngineManager().getEngineByName("js");
     private static void info (String msg) {
         System.err.println("INFO: " + msg);
     }
@@ -48,7 +53,16 @@ public class Preprocessor {// takes file stream and the directory path where the
         System.err.println("ERROR:" + msg);
         System.exit(1);
     }
-    private static void preprocess(BufferedReader reader, Path cwd, PrintStream output) throws Exception {
+    private static boolean parseIf (String[] line) throws Exception {
+        line[0] = "";
+        for (int i = 1; i < line.length; i ++) {
+            if (defined.containsKey(line[i])) {
+                line[i] = Integer.toString(defined.get(line[i]).intValue());
+            }
+        }
+        return (Boolean) javaScriptEngine.eval(String.join("", line));
+    }
+    private static void preprocess (BufferedReader reader, Path cwd, PrintStream output) throws Exception {
         int cbyte = reader.read();
         boolean test = true;
         while (cbyte != -1) {
@@ -147,7 +161,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                     printstrm.println(line[1]);
                     required.add(line[1]);
                 } else if (line[0].equalsIgnoreCase("ifdef")) {
-                    boolean isdef = defined.contains(line[1]);
+                    boolean isdef = defined.containsKey(line[1]);
                     printstrm.println("ifdef: " + line[1] + " (" + isdef + ")");
                     ifdefStack.add(new IfdefStackItem());
                     if (!isdef) {
@@ -156,8 +170,31 @@ public class Preprocessor {// takes file stream and the directory path where the
                     } else {
                         ifdefStack.peek().succeeded = true;
                     }
+                } else if (line[0].equalsIgnoreCase("if")) {
+                    if (!defined.containsKey(line[1])) {
+                        throw new Exception("Attempted to compare the value of a preprocessor variable that does not exist");
+                    }
+                    boolean cmpRes = parseIf(line);
+                    ifdefStack.add(new IfdefStackItem());
+                    if (!cmpRes) {
+                        printstrm.println("if check failed, skipping");
+                        startIfdefTypeSkip = true;
+                    } else {
+                        ifdefStack.peek().succeeded = true;
+                    }
                 } else if (line[0].equalsIgnoreCase("elif")) {
-                    boolean isdef = defined.contains(line[1]);
+                    boolean cmpRes = parseIf(line);
+                    if (ifdefStack.peek().succeeded) {
+                        printstrm.println("elif check failed (else component), skipping");
+                        startIfdefTypeSkip = true;
+                    } else if (!cmpRes) {
+                        printstrm.println("elif check failed (if component), skipping");
+                        startIfdefTypeSkip = true;
+                    } else {
+                        ifdefStack.peek().succeeded = true;
+                    }
+                } else if (line[0].equalsIgnoreCase("elifdef")) {
+                    boolean isdef = defined.containsKey(line[1]);
                     printstrm.println("elif: " + line[1] + " (" + isdef + ")");
                     if (ifdefStack.peek().succeeded) {
                         printstrm.println("elif check failed (else component), skipping");
@@ -184,7 +221,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                 } else if (line[0].equalsIgnoreCase("info")) {
                     info(line[1]);
                 } else if (line[0].equalsIgnoreCase("define")) {
-                    defined.add(line[1]);
+                    defined.put(line[1], line.length > 2 ? Integer.parseInt(line[2]) : 1);
                 }
                 if (startIfdefTypeSkip) {
                     int cdepth = 0;
@@ -195,13 +232,23 @@ public class Preprocessor {// takes file stream and the directory path where the
                             String cmd = nline.substring(1, TMP1_spaceIdx > -1 ? TMP1_spaceIdx : nline.length());
                             if (cmd.equalsIgnoreCase("ifdef")) {
                                 cdepth ++;
-                            } else if (cmd.equalsIgnoreCase("elif")) {
+                            } else if (cmd.equalsIgnoreCase("if")) {
+                                cdepth ++;
+                            } else if (cmd.equalsIgnoreCase("elifdef")) {
                                 if (cdepth == 0) {
-                                    if (ifdefStack.peek().succeeded || !defined.contains(nline.split(" ")[1])) { // if check fails then the result would be same is if an independent #ifdef failed, so just continue
+                                    if (ifdefStack.peek().succeeded || !defined.containsKey(nline.split(" ")[1])) { // if check fails then the result would be same is if an independent #ifdef failed, so just continue
                                         continue;
                                     }
                                     ifdefStack.peek().succeeded = true;
                                     break; // this only is reached if the #elif succeeded, so enter normal success result
+                                }
+                            } else if (cmd.equalsIgnoreCase("elif")) {
+                                if (cdepth == 0) {
+                                    if (ifdefStack.peek().succeeded || !parseIf(nline.split(" "))) {
+                                        continue;
+                                    }
+                                    ifdefStack.peek().succeeded = true;
+                                    break;
                                 }
                             } else if (cmd.equalsIgnoreCase("else")) {
                                 if (cdepth == 0) {
@@ -293,7 +340,7 @@ public class Preprocessor {// takes file stream and the directory path where the
             } else if (arg.matches("-(dp|DP)=")) {
                 defPath = Path.of(arg.split("=",2)[1]);
             } else {
-                defined.add(arg);
+                defined.put(arg, arg.contains("=") ? Integer.parseInt(arg.split("=")[1]) : 1);
             }
         }
         PrintStream output = System.out;
@@ -306,7 +353,7 @@ public class Preprocessor {// takes file stream and the directory path where the
             for (String s : new String(fIn.readAllBytes()).split("\n")) {
                 if (s.length() > 0 && !(s.charAt(0) == '#')) {
                     printstrm.println(s);
-                    defined.add(s);
+                    defined.put(s, s.contains("=") ? Integer.parseInt(s.split("=")[1]) : 1);
                 }
             }
             fIn.close();

@@ -10,11 +10,13 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 
 /*#import "stdarrays"*/
 /*#import "flagtest"*/
+#import "sysmem"
+#import "sys"
 
 /*#require "DhulbStdClasses"*/
 /*#require "DhulbStdRedirect" defunct*/
 
 u32 program ( u32 _, addr*addr*char _ ) {
-    String str = new String();
+    /*String str = new String();*/
     u32[] arr = new u32[](10);
 }

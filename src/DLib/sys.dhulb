@@ -3,6 +3,7 @@
  * Created on 2023-01-24
  */
 /*
+ * @Dhulb
  * int exit(int)
  * arg0: Exit code
  * returns: 1
@@ -22,7 +23,7 @@ int exit(int code) {
 		#else
 			#error "Unsupported operand size for the target kernel"
 		#endif
-	#elif NOKERNEL
+	#elifdef NOKERNEL
 		#error "A target kernel is needed"
 	#else
 		#error "Unsupported target kernel

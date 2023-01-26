@@ -41,7 +41,7 @@ addr allocate(int amntBytes) {
 		#else
 			#error "Unsupported Linux kernel version (kernel version must be 2.4 or above)"
 		#endif
-	#elif NOKERNEL
+	#elifdef NOKERNEL
 		#error "A target kernel is needed"
 	#else
 		#error "Unsupported target kernel"

@@ -4,10 +4,15 @@ ExtPath=/Users/tschartman/Documents/GitHub/dhulb/src/DExt
 DefPath=PPD.dhulb_def
 reading def path:
 BITS16
+KERNEL_LINUX_I386=020400000
+OPERAND_BITS=32
+CALL_BITS=32
 NOFLAGTEST
 FLAG1
 FLAG2
-[require, DhulbStdClasses]
-DhulbStdClasses
-[require, DhulbStdRedirect]
-DhulbStdRedirect
+[import, sys]
+sys
+[ifdef, KERNEL_LINUX_I386]
+ifdef: KERNEL_LINUX_I386 (false)
+ifdef check failed, skipping
+[error, Unsupported operand size for the target kernel]
