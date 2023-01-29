@@ -13,6 +13,8 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 #import "sysmem"
 #import "sys"
 
+#utilize "test.s"
+
 /*#require "DhulbStdClasses"*/
 /*#require "DhulbStdRedirect" defunct*/
 

@@ -1358,7 +1358,7 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 		return bpOff;
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
-		Compiler.text.println(name + ":/*dhulbDoc-v" + Compiler.numericVersion + ":function;" + this.toString() + " " + "call" + abiSize + ";*/");
+		Compiler.text.println(name + ":#/*dhulbDoc-v" + Compiler.numericVersion + ":function;" + this.toString() + " " + "call" + abiSize + ";*/");
 		switch (abiSize) {
 			case (16):
 				Compiler.text.println("pushw %bp");

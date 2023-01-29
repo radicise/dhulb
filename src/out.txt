@@ -40,3 +40,5 @@ else check failed
 [elifdef, NOKERNEL]
 elifdef: NOKERNEL (true)
 elifdef check failed (else component), skipping
+[utilize, test.s]
+test.s

@@ -35,6 +35,7 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static Path extPath = null;
     private static Path defPath = null;
     private static HashSet<String> imported = new HashSet<>();
+    private static HashSet<String> utilized = new HashSet<>();
     private static HashSet<String> required = new HashSet<>();
     private static HashMap<String, Integer> defined = new HashMap<>();
     private static Stack<IfdefStackItem> ifdefStack = new Stack<>();
@@ -155,11 +156,39 @@ public class Preprocessor {// takes file stream and the directory path where the
                             minimalImport = false;
                         }
                     }
-                } else if (line[0].equalsIgnoreCase("utilise")) {
-                    printstrm.println(line[1]);
-                    printstrm.println("NOT IMPLEMENTED USE OF \"utilise\"");
-                    //TODO: implement an assembler
-                    throw new NotImplementedException("Use of assembly files has not been implemented yet: " + line[1]);
+                } else if (line[0].equalsIgnoreCase("utilize")) {
+                    if (utilized.contains(line[1])) {
+                        printstrm.println("already utilized");
+                    } else {
+                        printstrm.println(line[1]);
+                        utilized.add(line[1]);
+                        try {
+                            if (importComments) {
+                                output.print("/* begin utilized content from: " + line[1] + " */\n");
+                            }
+                            output.println("/&");
+                            File f = new File(cwd.toString(), line[1]);
+                            if (!f.exists()) {
+                                f = new File(libPath.toString(), line[1]);
+                            }
+                            FileInputStream fIn = new FileInputStream(f);
+                            output.write(fIn.readAllBytes());
+                            fIn.close();
+                            output.println("\n&/");
+                            // preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Path.of(f.getParent()), output);
+                            if (importComments) {
+                                output.print("\n/* end utilized content from: " + line[1] + "*/");
+                            }
+                        } catch (FileNotFoundException FNF) {
+                            printstrm.println("File Not Found: " + line[1]);
+                            throw FNF;
+                            // throw new Exception("Could not find file:" + line[1]);
+                        } catch (Exception _E) {
+                            System.err.println("error preprocessing import");
+                            _E.printStackTrace(System.err);
+                            System.exit(1);
+                        }
+                    }
                 } else if (line[0].equalsIgnoreCase("require")) {
                     printstrm.println(line[1]);
                     required.add(line[1]);
