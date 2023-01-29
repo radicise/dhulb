@@ -1595,28 +1595,28 @@ class FullType {//Like Type but with possible pointing or running clauses
 				if (s.equals("uint")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
 					}
 					typ = Compiler.defUInt;
 				}
 				else if (s.equals("sint") || s.equals("int")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
 					}
 					typ = Compiler.defSInt;
 				}
 				else if (s.equals("float")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
 					}
 					typ = Compiler.def754;
 				}
 				else if (s.equals("addr")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
 					}
 					typ = Compiler.defAdr;
 				}
