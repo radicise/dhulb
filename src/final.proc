@@ -36,7 +36,7 @@ a32 allocate(u32 amntBytes) {
 	
 }
 
-a32 exit(u32 code) {
+u32 exit(u32 code) {
 	
 		
 			/&
@@ -47,9 +47,9 @@ a32 exit(u32 code) {
 			&/
 		
 	
-
+	return 1 as u32;
 }
 
-a32 x ( u32 argc, a32*a32*u8 argv ) {
-
+s32 x ( u32 argc, a32*a32*u8 argv ) {
+	return 1;
 }

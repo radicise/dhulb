@@ -29,7 +29,7 @@ movl %esp,%ebp
 					popl %ebp
 					xorl %eax,%eax
 					ret
-				exit:#/*dhulbDoc-v200:function;a32 exit(u32) call32;*/
+				exit:#/*dhulbDoc-v200:function;u32 exit(u32) call32;*/
 pushl %ebp
 movl %esp,%ebp
 
@@ -37,6 +37,16 @@ movl %esp,%ebp
 				xorl %eax,%eax
 				incl %eax
 				int $0x80
-			x:#/*dhulbDoc-v200:function;a32 x(u32, a32*a32*u8) call32;*/
+			xorl %eax,%eax
+movb $0x01,%al
+movl %ebp,%esp
+popl %ebp
+retl
+x:#/*dhulbDoc-v200:function;s32 x(u32, a32*a32*u8) call32;*/
 pushl %ebp
 movl %esp,%ebp
+xorl %eax,%eax
+movb $0x01,%al
+movl %ebp,%esp
+popl %ebp
+retl
