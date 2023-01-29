@@ -1,20 +1,5 @@
-/*
-note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
-the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
-*/
-/*
-PWD must be "src"
-COMMAND USED TO TEST THIS IS CURRENTLY:
-cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
-*/
 
-/*#import "stdarrays"*/
-/*#import "flagtest"*/
-/* begin imported content from: sysmem */
-/*
- * sysmem.dhulb
- * Created by root on UTC 2023-01-18_01:02:06.810019082
- */
+
 a32 allocate(u32 amntBytes) {
 	
 		
@@ -51,24 +36,9 @@ a32 allocate(u32 amntBytes) {
 	
 }
 
-/* end imported content from: sysmem*/
-/* begin imported content from: sys */
-/*
- * sys.dhulb
- * Created on 2023-01-24
- */
-/*
- * @Dhulb
- * int exit(int)
- * arg0: Exit code
- * returns: 1
- *
- * Notes: This function does not return
- */
-u32 exit(u32 code) {
+a32 exit(u32 code) {
 	
 		
-			code;
 			/&
 				movl %eax,%ebx
 				xorl %eax,%eax
@@ -77,23 +47,9 @@ u32 exit(u32 code) {
 			&/
 		
 	
-	return 1;/*This should not be reached*/
+
 }
 
-/* end imported content from: sys*/
+a32 x ( u32 argc, a32*a32*u8 argv ) {
 
-/* begin utilized content from: test.s */
-/&
-# testing utilize
-&/
-
-/* end utilized content from: test.s*/
-
-/*#require "DhulbStdClasses"*/
-/*#require "DhulbStdRedirect" defunct*/
-
-u32 x ( u32 argc, a32*a32*u8 argv ) {
-    /*String str = new String();*/
-    /*u32[] arr = new u32[](10);*/
-	return 1;
 }
