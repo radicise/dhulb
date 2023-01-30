@@ -146,7 +146,6 @@ public class Preprocessor {// takes file stream and the directory path where the
                         } catch (FileNotFoundException FNF) {
                             printstrm.println("File Not Found: " + line[1]);
                             throw FNF;
-                            // throw new Exception("Could not find file:" + line[1]);
                         } catch (Exception _E) {
                             System.err.println("error preprocessing import");
                             _E.printStackTrace(System.err);
@@ -162,29 +161,49 @@ public class Preprocessor {// takes file stream and the directory path where the
                     } else {
                         printstrm.println(line[1]);
                         utilized.add(line[1]);
+                        /*
+                         * #utilise nosymb|nodoc|docscan|all “file”, defaults to "docscan"
+                         * Assembles an assembly file to a file of the name of the same name with “__assembled” appended
+                         * 
+                         * if “docscan” is used, it is scanned for dhulbDoc markers and places appropriate “imply” statements in the current file
+                         * 
+                         * if “all” is used, applies "docscan", then adds "imply u8" for all other symbols
+                         * 
+                         * if “nodoc” is used, effect is equivalent to "all" when no dhulbdoc is present
+                         * 
+                         * if “nosymb” is used, no “imply” statements will be added
+                         */
                         try {
                             if (importComments) {
                                 output.print("/* begin utilized content from: " + line[1] + " */\n");
                             }
-                            output.println("/&");
                             File f = new File(cwd.toString(), line[1]);
                             if (!f.exists()) {
                                 f = new File(libPath.toString(), line[1]);
                             }
+                            int argval = line.length > 2 ? (line[2].equalsIgnoreCase("docscan") ? 0 : (line[2].equalsIgnoreCase("nosymb") ? 3 : (line[2].equalsIgnoreCase("all") ? 1 : (line[2].equalsIgnoreCase("nodoc") ? 2 : 0)))) : 0;
                             FileInputStream fIn = new FileInputStream(f);
-                            output.write(fIn.readAllBytes());
+                            String toScan = new String(fIn.readAllBytes());
                             fIn.close();
-                            output.println("\n&/");
-                            // preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Path.of(f.getParent()), output);
+                            for (String scanLine : toScan.split("\n")) {
+                                if (scanLine.matches("^[\\s]*[a-zA-Z0-9_]+:")) { // does checks on labels
+                                    if (scanLine.contains("/*dhulbDoc")) {
+                                        //
+                                    } else if (argval > 0 && argval < 3) {
+                                        output.println("imply u8 " + scanLine.trim().split(":", 2)[0] + ";");
+                                    }
+                                } else if (scanLine.contains("/*dhulbDoc")) { // does checks on standalone dhulbdoc
+                                    //
+                                }
+                            }
                             if (importComments) {
                                 output.print("\n/* end utilized content from: " + line[1] + "*/");
                             }
                         } catch (FileNotFoundException FNF) {
                             printstrm.println("File Not Found: " + line[1]);
                             throw FNF;
-                            // throw new Exception("Could not find file:" + line[1]);
                         } catch (Exception _E) {
-                            System.err.println("error preprocessing import");
+                            System.err.println("error preprocessing utilize");
                             _E.printStackTrace(System.err);
                             System.exit(1);
                         }

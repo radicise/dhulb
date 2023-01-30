@@ -1,7 +1,7 @@
 .data
 .text
 .code32
-allocate:#/*dhulbDoc-v200:function;a32 allocate(u32) call32;*/
+allocate:/*dhulbDoc-v200:function;a32 allocate(u32) call32;*/
 pushl %ebp
 movl %esp,%ebp
 
@@ -29,7 +29,7 @@ movl %esp,%ebp
 					popl %ebp
 					xorl %eax,%eax
 					ret
-				exit:#/*dhulbDoc-v200:function;u32 exit(u32) call32;*/
+				exit:/*dhulbDoc-v200:function;u32 exit(u32) call32;*/
 pushl %ebp
 movl %esp,%ebp
 
@@ -42,7 +42,7 @@ movb $0x01,%al
 movl %ebp,%esp
 popl %ebp
 retl
-x:#/*dhulbDoc-v200:function;s32 x(u32, a32*a32*u8) call32;*/
+x:/*dhulbDoc-v200:function;s32 x(u32, a32*a32*u8) call32;*/
 pushl %ebp
 movl %esp,%ebp
 xorl %eax,%eax
