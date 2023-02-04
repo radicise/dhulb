@@ -10,11 +10,13 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
+import java.nio.file.Paths;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -139,7 +141,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                             if (!f.exists()) {
                                 f = new File(libPath.toString(), line[1] + ".dhulb");
                             }
-                            preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Path.of(f.getParent()), output);
+                            preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Paths.get(f.getParent()), output);
                             if (importComments) {
                                 output.print("\n/* end imported content from: " + line[1] + "*/");
                             }
@@ -182,9 +184,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                                 f = new File(libPath.toString(), line[1]);
                             }
                             int argval = line.length > 2 ? (line[2].equalsIgnoreCase("docscan") ? 0 : (line[2].equalsIgnoreCase("nosymb") ? 3 : (line[2].equalsIgnoreCase("all") ? 1 : (line[2].equalsIgnoreCase("nodoc") ? 2 : 0)))) : 0;
-                            FileInputStream fIn = new FileInputStream(f);
-                            String toScan = new String(fIn.readAllBytes());
-                            fIn.close();
+                            String toScan = new String(Files.readAllBytes(f.toPath()));
                             for (String scanLine : toScan.split("\n")) {
                                 if (scanLine.matches("^[\\s]*[a-zA-Z0-9_]+:")) { // does checks on labels
                                     if (scanLine.contains("/*dhulbDoc")) {
@@ -279,7 +279,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                 if (startIfdefTypeSkip) {
                     int cdepth = 0;
                     while (true) {
-                        String nline = reader.readLine().strip();
+                        String nline = reader.readLine().trim();//TODO restore trimming just of `Java white space' characters instead of including all C0 control codes
                         if (nline.startsWith("#")) {
                             int TMP1_spaceIdx = nline.indexOf(" ");
                             String cmd = nline.substring(1, TMP1_spaceIdx > -1 ? TMP1_spaceIdx : nline.length());
@@ -334,16 +334,14 @@ public class Preprocessor {// takes file stream and the directory path where the
         }
     }
     private static void parseConfig (Path cfgFile, Path cwd) throws Exception {
-        File cfgF = cfgFile.toFile();
+    	File cfgF = cfgFile.toFile();
         String cwdStr = cwd.toString();
         if (!cfgF.exists()) {
             printstrm.println("Config File Not Found:" + cfgFile.toString());
             return;
         }
         printstrm.println("Loading Config File:");
-        FileInputStream fIn = new FileInputStream(cfgF);
-        String[] cfg = new String(fIn.readAllBytes(), StandardCharsets.UTF_8).split("[\n\r]+");
-        fIn.close();
+        String[] cfg = new String(Files.readAllBytes(cfgFile), StandardCharsets.UTF_8).split("[\n\r]+");
         for (String line : cfg) {
             line = line.trim();
             if (line.startsWith("#")) { // comments
@@ -351,15 +349,15 @@ public class Preprocessor {// takes file stream and the directory path where the
             }
             if (libPath == null && line.startsWith("LibPath=")) { // dhulb library path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
-                libPath = Path.of(s);
+                libPath = Paths.get(s);
                 printstrm.println("LibPath="+s);
             } else if (extPath == null && line.startsWith("ExtPath=")) { // dhulb extension path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
-                extPath = Path.of(s);
+                extPath = Paths.get(s);
                 printstrm.println("ExtPath="+s);
             } else if (defPath == null && line.startsWith("DefPath=")) { // preprocessor name definition path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
-                defPath = Path.of(s);
+                defPath = Paths.get(s);
                 printstrm.println("DefPath="+s);
             }
         }
@@ -369,8 +367,8 @@ public class Preprocessor {// takes file stream and the directory path where the
             System.out.println("Usage:\njava Dhulb/Preprocessor debug-dest|- (no debug) working-path|- (use the current working directory) [options]\n -comment-imports -- marks where imported content begins, ends, and the source file of the imported content\n -pass-comments --passes comments through the preprocessor instead of stripping them");
             return;
         }
-        Path cwd = Path.of(System.getenv("PWD"));
-        Path cfgPath = Path.of(System.getenv("HOME"), ".dhulb_conf");
+        Path cwd = Paths.get(System.getenv("PWD"));
+        Path cfgPath = Paths.get(System.getenv("HOME"), ".dhulb_conf");
         if (args.length > 0 && !args[0].equals("-")) {
             printstrm = new PrintStream(new File(cwd.toString(), args[0]));
         } else {
@@ -383,15 +381,15 @@ public class Preprocessor {// takes file stream and the directory path where the
             } else if (arg.equalsIgnoreCase("-pass-comments")) {
                 passComments = true;
             } else if (arg.matches("-(cwd|CWD)=")) {
-                cwd = Path.of(arg.split("=",2)[1]);
+                cwd = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(conf|CONF)=.*")) {
-                cfgPath = Path.of(arg.split("=",2)[1]);
+                cfgPath = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(lp|LP)=")) {
-                libPath = Path.of(arg.split("=",2)[1]);
+                libPath = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(ep|EP)=")) {
-                extPath = Path.of(arg.split("=",2)[1]);
+                extPath = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(dp|DP)=")) {
-                defPath = Path.of(arg.split("=",2)[1]);
+                defPath = Paths.get(arg.split("=",2)[1]);
             } else {
                 boolean isa = arg.contains("=");
                     defined.put(isa ? arg.split("=")[0] : arg, isa ? Integer.parseInt(arg.split("=")[1]) : 1);
@@ -402,16 +400,14 @@ public class Preprocessor {// takes file stream and the directory path where the
         BufferedReader reader = new BufferedReader(inreader);
         parseConfig(cfgPath, cwd);
         if (defPath != null) {
-            FileInputStream fIn = new FileInputStream(new File(defPath.toString()));
             printstrm.println("reading def path:");
-            for (String s : new String(fIn.readAllBytes()).split("\n")) {
+            for (String s : new String(Files.readAllBytes(defPath)).split("\n")) {
                 if (s.length() > 0 && !(s.charAt(0) == '#')) {
                     printstrm.println(s);
                     boolean isa = s.contains("=");
                     defined.put(isa ? s.split("=")[0] : s, isa ? Integer.parseInt(s.split("=")[1]) : 1);
                 }
             }
-            fIn.close();
         }
         RecoverableOutputStream rOut = new RecoverableOutputStream();
         preprocess(reader, cwd, new PrintStream(rOut));
