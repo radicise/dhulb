@@ -7,6 +7,7 @@ import java.io.PrintStream;
 import java.io.PushbackInputStream;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -22,7 +23,7 @@ class Dhulb {
 	public static void main(String[] argv) throws IOException, InternalCompilerException {
 		if (argv[0].equals("--help")) {
 				System.out.println("Invocation:\n"
-						+ "dhulbc 16|32|64 -[t][N]\n"
+						+ "dhulbc 16|32|64 -[t][N][B]\n"
 						+ "\n"
 						+ "\n"
 						+ "Argument description:\n"
@@ -48,7 +49,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static PrintStream epiback;
 	public static PrintStream rwdatback;
 	public static PrintStream texback;
-	public static PushbackInputStream in = new PushbackInputStream(System.in, 64);//Do not unread too much
+	public static PushbackInputStream in = new PushbackInputStream(System.in, 64);//Do not `unread' too much
 	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
 	public static final long FALSI = 1;
 	public static final long VERIF = 0;
@@ -225,7 +226,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			}
 		}
 	}
-	static void getCompilable(ArrayList<Compilable> list, boolean inFunc, Function fn) throws CompilationException, InternalCompilerException, IOException {
+	static void getCompilable(ArrayList<Compilable> list, boolean inFunc, Stacked fn) throws CompilationException, InternalCompilerException, IOException {
 		if (inFunc && (fn == null)) {
 			throw new InternalCompilerException("Function not provided");
 		}
@@ -238,7 +239,11 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			throw new BlockEndException("Unexpected end-of-block");
 		}
 		else if (i == '{') {
-			throw new NotImplementedException();//TODO support for blocks (saves stack space)
+			if (!(inFunc)) {
+				throw new CompilationException("Scoped block outside of a function");
+			}
+			list.add(Block.from(fn));
+			return;
 		}
 		else if (i == '/') {
 			if ((i = Util.read()) == '%') {
@@ -263,7 +268,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					}
 				}
 				catch (EOFException E) {
-					throw new CompilationException("Un-closed data section block");
+					throw new CompilationException("Data section block not closed");
 				}
 			}
 			else if (i == '&') {
@@ -288,7 +293,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					}
 				}
 				catch (EOFException E) {
-					throw new CompilationException("Un-closed data section block");
+					throw new CompilationException("Code section block not closed");
 				}
 			}
 			else if (i == '*') {
@@ -305,7 +310,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					}
 				}
 				catch (EOFException E) {
-					throw new CompilationException("Un-closed comment");
+					throw new CompilationException("Comment not closed");
 				}
 			}
 			else {
@@ -415,10 +420,18 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 							throw new CompilationException("Keyword `return' is not allowed outside of a function");
 						}
 						Util.skipWhite();
-						list.add(new Yield(Expression.from(';'), fn.retType, fn.abiSize));
+						list.add(new Yield(Expression.from(';'), fn.retType(), fn.abiSize()));
+						return;
+					case ("if"):
+						if (inFunc) {
+							list.add(IfThen.from(fn));
+						}
+						else {
+							throw new NotImplementedException();//TODO decide how variables declared inside of if statements which are outside of functions will work
+						}
 						return;
 					default:
-						throw new NotImplementedException("Not implemented or invalid syntax");
+						throw new NotImplementedException("Unimplemented or illegal use of keyword: " + s);
 				}
 			}
 			else {
@@ -505,7 +518,9 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	}
 }
 class Util {
+	public static final long ubid = (new SecureRandom()).nextLong();
 	static ArrayList<Integer> brack = new ArrayList<Integer>();
+	static long sen = 0;
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
 	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval"};
@@ -518,7 +533,7 @@ class Util {
 	static ArrayList<String> primsk = new ArrayList<String>();
 	static String[] primse = new String[]{"u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "float", "addr", "int", "sizeof"};//TODO maybe but probably not: remove the platform-dependent aliases, use a plug-in for them instead
 	static ArrayList<Integer> inpork = new ArrayList<Integer>();
-	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$'};
+	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!'};
 	static ArrayList<String> nondefk = new ArrayList<String>();
 	static String[] nondefe = new String[]{"this"};
 	static ArrayList<Integer> idesk = new ArrayList<Integer>();
@@ -569,6 +584,58 @@ class Util {
 		view[0] = '!';//this '!' should not ever be seen
 	}
 	private Util() {
+	}
+//	static char suffixFor(int mch) throws InternalCompilerException {
+//		switch(mch) {
+//			case (0):
+//				return 'w';
+//			case (1):
+//				return 'l';
+//			case (2):
+//				return 'q';
+//			case (8):
+//				return 'b';
+//			case (16):
+//				return 'w';
+//			case (32):
+//				return 'l';
+//			case (64):
+//				return 'q';
+//			default:
+//				throw new InternalCompilerException("Illegal operand size");
+//		}
+//	}
+	static String reserve() {
+		return "___dhulbres__" + Long.toHexString(ubid) + "__" + Long.toString(sen++);
+	}
+	static void unread(int[] ii) throws InternalCompilerException, IOException {//un-reading of phrases up to only 8 characters is supported
+		for (int t = ii.length - 1; t >= 0; t--) {
+			Util.unread(ii[t]);
+		}
+	}
+	static boolean confirm(int[] ii) throws InternalCompilerException, IOException {//checking of phrases up to only 8 characters is supported; remember to use include ending delimiters when needed
+		if (ii.length > 8) {
+			throw new InternalCompilerException();
+		}
+		int i = 0;
+		try {
+			for (; i < ii.length; i++) {
+				int r = Util.read();
+				if (r != ii[i]) {
+					Util.unread(r);
+					for (int t = i - 1; t >= 0; t--) {
+						Util.unread(ii[t]);
+					}
+					return false;
+				}
+			}
+		}
+		catch (EOFException E) {
+			for (int t = i - 1; t >= 0; t--) {
+				Util.unread(ii[t]);
+			}
+		}
+		return true;
 	}
 	static String escape(String term) {
 		StringBuilder sb = new StringBuilder();
@@ -727,6 +794,8 @@ class Util {
 			viewPos--;
 		}
 		if (view[viewPos] != f) {
+			System.out.println((char) view[viewPos]);
+			System.out.println((char) f);
 			throw new InternalCompilerException("Pushback-based un-reading inconsistency");
 		}
 	}
@@ -1030,6 +1099,171 @@ class Yield implements Doable {//use the function's ABI
 		}
 	}
 }
+class Condition {
+	Value based;
+	Condition(Value b) {
+		based = b;
+	}
+	void toZero() throws CompilationException, InternalCompilerException {//sets ZF upon truth; clears it otherwise
+		int siz = based.bring().type.size();
+		switch (Compiler.mach) {
+			case (0):
+				switch (siz) {
+					case (8):
+						Compiler.text.println("testb %al,%al");
+						break;
+					case (16):
+						Compiler.text.println("testw %ax,%ax");
+						break;
+					case 32:
+						throw new NotImplementedException();
+					case 64:
+						throw new NotImplementedException();
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+				break;
+			case (1):
+				switch (siz) {
+					case (8):
+						Compiler.text.println("testb %al,%al");
+						break;
+					case (16):
+						Compiler.text.println("testw %ax,%ax");
+						break;
+					case 32:
+						Compiler.text.println("testl %eax,%eax");
+						break;
+					case 64:
+						throw new NotImplementedException();
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+				break;
+			case (2):
+				throw new NotImplementedException();
+			default:
+				throw new InternalCompilerException("Unidentifiable target");
+		}
+	}
+}
+abstract class Conditional implements Doable {//if(X), else(X), else, while(X), for(X;X;X), dowhile(X)
+	static int[] els = new int[] {'e', 'l', 's', 'e'};
+	final Stacked parent;
+	protected Conditional(Stacked p) {
+		parent = p;
+	}
+}//TODO allow do{X}while(X) and do while(X) {X}
+class IfThen extends Conditional {
+	final ArrayList<Condition> ifs;//must have the same size as `poss' and `thens'
+	final ArrayList<Boolean> poss;//must have the same size as `ifs' and `thens'
+	final ArrayList<Block> thens;//must have the same size as `ifs' and `poss'
+	final Block ending;//null if no else{X}
+	private IfThen(ArrayList<Condition> i, ArrayList<Block> t, ArrayList<Boolean> po, Block e, Stacked p) {
+		super(p);
+		ifs = i;
+		poss = po;
+		thens = t;
+		ending = e;
+	}
+	static IfThen from(Stacked par) throws CompilationException, InternalCompilerException, IOException {//starts reading from after the "if"
+		ArrayList<Condition> conds = new ArrayList<Condition>();
+		ArrayList<Block> execs = new ArrayList<Block>();
+		ArrayList<Boolean> pos = new ArrayList<Boolean>();
+		Util.skipWhite();
+		int i = Util.read();
+		while (true) {
+			if (i == '!') {
+				pos.add(false);
+				Util.skipWhite();
+				i = Util.read();
+			}
+			else {
+				pos.add(true);
+			}
+			if (i != '(') {
+				throw new CompilationException("Illegal operator: " + new String(new int[]{i}, 0, 1));
+			}
+			conds.add(new Condition(Expression.from(')')));
+			Util.skipWhite();
+			if ((i = Util.read()) != '{') {
+				throw new CompilationException("Illegal operator: " + new String(new int[]{i}, 0, 1));
+			}
+			execs.add(Block.from(par));
+			Util.skipWhite();
+			if (!(Util.confirm(els))) {
+				return new IfThen(conds, execs, pos, null, par);
+			}
+			i = Util.read();
+			if (!((Character.isWhitespace(i)) || (i == '{') || (i == '(') || (i == '!'))) {
+				Util.unread(i);
+				Util.unread(els);
+				return new IfThen(conds, execs, pos, null, par);
+			}
+			if (Character.isWhitespace(i)) {
+				Util.skipWhite();
+				i = Util.read();
+				if (!((i == '(') || (i == '{') || (i == '!'))) {
+					throw new CompilationException("Illegal operator: " + new String(new int[]{i}, 0, 1));
+				}
+			}
+			if (i == '{') {
+				return new IfThen(conds, execs, pos, Block.from(par), par);
+			}
+		}
+	}
+	public void compile() throws CompilationException, InternalCompilerException, IOException {
+		String esymb = Util.reserve();
+		String nsymb = null;
+		int j = ifs.size() - 1;
+		for (int i = 0; i <= j; i++) {
+			ifs.get(i).toZero();
+			if (i != j) {
+				nsymb = Util.reserve();
+				if (poss.get(i)) {
+					Compiler.text.println("jnz " + nsymb);
+				}
+				else {
+					Compiler.text.println("jz " + nsymb);
+				}
+				thens.get(i).compile();
+				Compiler.text.println("jmp " + esymb);
+				Compiler.text.print(nsymb);
+				Compiler.text.println(":");
+			}
+			else {
+				if (ending == null) {
+					if (poss.get(i)) {
+						Compiler.text.println("jnz " + esymb);
+					}
+					else {
+						Compiler.text.println("jz " + esymb);
+					}
+					thens.get(i).compile();
+					Compiler.text.print(esymb);
+					Compiler.text.println(":");
+				}
+				else {
+					nsymb = Util.reserve();
+					if (poss.get(i)) {
+						Compiler.text.println("jnz " + nsymb);
+					}
+					else {
+						Compiler.text.println("jz " + nsymb);
+					}
+					thens.get(i).compile();
+					Compiler.text.println("jmp " + esymb);
+					Compiler.text.print(nsymb);
+					Compiler.text.println(":");
+					ending.compile();
+					Compiler.text.print(esymb);
+					Compiler.text.println(":");
+				}
+				return;
+			}
+		}
+	}
+}
 class Structure implements Compilable {//TODO allow use of the structured byte before field definitions are complete
 	StructuredType type;//do not change field values of this; equality operator should not be used for equality checks
 	FullType fulltype;//do not change field values of this; equality operator should not be used for equality checks
@@ -1304,7 +1538,7 @@ class StructEntry implements Comparable<StructEntry> {
 		return (diff == 0L) ? 0 : ((diff > 0L) ? 1 : 0);
 	}
 }
-class Function implements Compilable {//TODO maybe warn when the code may reach the end of the function without returning
+class Function implements Stacked, Compilable {//TODO maybe warn when the code may reach the end of the function without returning
 	FullType retType;
 	String name;//symbol name
 	FullType[] dargs;
@@ -1312,6 +1546,7 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 	private transient long bpOff = 0;//offset from the base pointer 
 	private long minOff = 0;//lowest value of the offset from the base pointer without processing blocks
 	public final int abiSize;
+	long spos = 0;
 	private Function() {
 		abiSize = Compiler.CALL_SIZE_BITS;
 	}
@@ -1350,10 +1585,10 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 		sb.append(")");
 		return sb.toString();
 	}
-	long adjust(long n) {//TODO add support for blocks
+	public long adjust(long n) {
 		bpOff += n;
 		if (bpOff < minOff) {
-			minOff = bpOff;
+			spos = minOff = bpOff;
 		}
 		return bpOff;
 	}
@@ -1431,6 +1666,18 @@ class Function implements Compilable {//TODO maybe warn when the code may reach 
 			Compiler.context.pop();
 			return fn;
 		}
+	}
+	public FullType retType() {
+		return retType;
+	}
+	public int abiSize() {
+		return abiSize;
+	}
+	public long minOff() {
+		return minOff;
+	}
+	public long spos() {
+		return spos;
 	}
 }
 class Assignment implements Doable {
@@ -1595,28 +1842,28 @@ class FullType {//Like Type but with possible pointing or running clauses
 				if (s.equals("uint")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
+						throw new CompilationException("Illegal use of a platform-dependent type name");
 					}
 					typ = Compiler.defUInt;
 				}
 				else if (s.equals("sint") || s.equals("int")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
+						throw new CompilationException("Illegal use of a platform-dependent type name");
 					}
 					typ = Compiler.defSInt;
 				}
 				else if (s.equals("float")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
+						throw new CompilationException("Illegal use of a platform-dependent type name");
 					}
 					typ = Compiler.def754;
 				}
 				else if (s.equals("addr")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Compiler options have not been set to allow platform-dependent types");
+						throw new CompilationException("Illegal use of a platform-dependent type name");
 					}
 					typ = Compiler.defAdr;
 				}
@@ -1663,7 +1910,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 			}
 		}
 		catch (UnidentifiableTypeException E) {
-			throw new CompilationException("Unidentifiable type: " + E.verbatim);
+			throw new CompilationException("Unidentifiable type: " + E.verbatim);//TODO set `E' as the cause
 		}
 	}
 	static FullType[] getList(int ending) throws UnidentifiableTypeException, CompilationException, InternalCompilerException, IOException {//gets list of comma-delimited fullType entries, ended with the ending character (there is no comma after the last entry) (0-length allowed) (whitespace allowed)
@@ -2175,28 +2422,103 @@ interface Compilable {
 }
 interface Doable extends Compilable {
 }
-class Block implements Doable {
-	ArrayList<Compilable> comps;
-	Block(ArrayList<Compilable> c) {
-		comps = c;
+interface Stacked {
+	int abiSize();
+	FullType retType();
+	long adjust(long n);
+	long minOff();
+	long spos();
+}
+class Block implements Doable, Stacked {
+	Doable[] comps;
+	private transient long bpOff = 0;//offset from the base pointer 
+	private long minOff = 0;//lowest value of the offset from the base pointer without processing blocks
+	long spos;
+	Stacked parent;
+	Function assoc;
+	Block(Stacked p, Function a) {
+		parent = p;
+		assoc = a;
+		spos = minOff = bpOff = p.minOff();
 	}
-	Block from(Function f) throws CompilationException, InternalCompilerException, IOException {
+	static Block from(Stacked f) throws CompilationException, InternalCompilerException, IOException {
 		ArrayList<Compilable> c = new ArrayList<Compilable>();
 		Compiler.context.push(new TreeMap<String, StackVar>());
+		Block b = new Block(f, (f instanceof Function) ? ((Function) f) : ((Block) f).assoc);
 		try {
 			while (true) {
-				Compiler.getCompilable(c, true, f);
+				Compiler.getCompilable(c, true, b);
 			}
 		}
 		catch (BlockEndException e) {
+			b.comps = c.toArray(new Doable[0]);
 			Compiler.context.pop();
-			return new Block(c);
+			return b;
 		}
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
-		for (Compilable cpl : comps) {
+		long mo;
+		if ((mo = parent.spos()) <= minOff) {
+			spos = mo;
+			mo = 0;
+		}
+		else {
+			mo = minOff - parent.spos();
+			spos = minOff;
+		}
+		if (mo > 0) {
+			throw new InternalCompilerException("This exceptional condition should not occur!");
+		}
+		else if (mo < 0) {
+			switch (assoc.abiSize) {
+				case (16):
+					Compiler.text.println("subw $" + Util.signedRestrict(-mo, 16) + ",%sp");
+					break;
+				case (32):
+					Compiler.text.println("subl $" + Util.signedRestrict(-mo, 33) + ",%esp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+		for (Doable cpl : comps) {
 			cpl.compile();
 		}
+		if (mo < 0) {
+			switch (assoc.abiSize) {
+				case (16):
+					Compiler.text.println("addw $" + Util.signedRestrict(-mo, 16) + ",%sp");
+					break;
+				case (32):
+					Compiler.text.println("addl $" + Util.signedRestrict(-mo, 33) + ",%esp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+	}
+	public FullType retType() {
+		return assoc.retType;
+	}
+	public int abiSize() {
+		return assoc.abiSize;
+	}
+	public long adjust(long n) {
+		bpOff += n;
+		if (bpOff < minOff) {
+			spos = minOff = bpOff;
+		}
+		return bpOff;
+	}
+	public long minOff() {
+		return minOff;
+	}
+	public long spos() {
+		return spos;
 	}
 }
 abstract class Value extends Item implements Doable {
@@ -2869,6 +3191,9 @@ class Expression extends Value {
 				continue;
 			}
 			else if ((tg == ending) || (tg == ending2)) {
+				if (ex.items.isEmpty()) {
+					throw new CompilationException("Empty expression");
+				}
 				ex.finalised = true;
 				PrintStream pstemp = Compiler.text;
 				Compiler.text = Compiler.nowhere;
