@@ -2314,7 +2314,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		Compiler.text.println("callq *%rax");
 	}
 }
-interface Typed {//EVERY Typed MUST have its `size()' result in a positive number that is evenly divisible by 8
+interface Typed {//EVERY Typed MUST have its `size()' result in a positive int that is evenly divisible by 8
 	int size();
 	boolean addressable();
 	default boolean eq(Typed to) {
@@ -2326,6 +2326,10 @@ interface Typed {//EVERY Typed MUST have its `size()' result in a positive numbe
 		}
 		return ((StructuredType) this).struct.name.equals(((StructuredType) to).struct.name);
 	}
+	void pushMain() throws InternalCompilerException;
+	void popMain() throws InternalCompilerException;
+	void popAddr() throws InternalCompilerException;
+	void toAddr() throws CompilationException, InternalCompilerException;
 }
 class StructuredType implements Typed {
 	Structure struct;
@@ -2344,8 +2348,20 @@ class StructuredType implements Typed {
 	public String toString() {
 		return struct.name;
 	}
+	public void pushMain() throws InternalCompilerException {
+		throw new InternalCompilerException("Attempt to push to the stack the value of a structural type");
+	}
+	public void popMain() throws InternalCompilerException {
+		throw new InternalCompilerException("Attempt to pop from the stack the value of a structural type");
+	}
+	public void popAddr() throws InternalCompilerException {
+		throw new InternalCompilerException("Attempt to pop from the stack to an address the value of a structural type");
+	}
+	public void toAddr() throws InternalCompilerException {
+		throw new InternalCompilerException("Attempt to use the value of a structural type as an address");
+	}
 }
-enum Type implements Typed {//only sizes of 8, 16, 32, and 64 are accepted
+enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	u8 (8, false, false),
 	s8 (8, false, true),
 	u16 (16, false, false),
@@ -2412,6 +2428,178 @@ enum Type implements Typed {//only sizes of 8, 16, 32, and 64 are accepted
 				}
 				return (((0x8000000000000000L >> (64 - size - 1)) & l) == 0L);
 			}
+		}
+	}
+	public void pushMain() throws InternalCompilerException {
+		switch (size + Compiler.mach) {
+			case (8):
+				Compiler.text.println("movb %al,(%sp)");
+				Compiler.text.println("subw $1,%sp");
+				return;
+			case (9):
+				Compiler.text.println("movb %al,(%esp)");
+				Compiler.text.println("subl $1,%esp");
+				return;
+			case (10):
+				Compiler.text.println("movb %al,(%rsp)");
+				Compiler.text.println("subq $1,%rsp");
+				return;
+			case (16):
+			case (17):
+			case (18):
+				Compiler.text.println("pushw %ax");
+				return;
+			case (32):
+				Compiler.text.println("pushw %dx");
+				Compiler.text.println("pushw %ax");
+				return;
+			case (33):
+				Compiler.text.println("pushl %eax");
+				return;
+			case (34):
+				Compiler.text.println("movl %eax,(%rsp)");
+				Compiler.text.println("subq $4,%rsp");
+				return;
+			case (64):
+				Compiler.text.println("pushw %bx");
+				Compiler.text.println("pushw %cx");
+				Compiler.text.println("pushw %dx");
+				Compiler.text.println("pushw %ax");
+				return;
+			case (65):
+				Compiler.text.println("pushl %edx");
+				Compiler.text.println("pushl %eax");
+				return;
+			case (66):
+				Compiler.text.println("pushq %rax");
+			default:
+				throw new InternalCompilerException("Unidentifiable or disallowed operand size and / or unidentifiable target");
+		}
+	}
+	public void popMain() throws InternalCompilerException {
+		switch (size + Compiler.mach) {
+			case (8):
+				Compiler.text.println("addw $1,%sp");
+				Compiler.text.println("movb (%sp),%al");
+				return;
+			case (9):
+				Compiler.text.println("addl $1,%esp");
+				Compiler.text.println("movb (%esp),%al");
+				return;
+			case (10):
+				Compiler.text.println("addq $1,%rsp");
+				Compiler.text.println("movb (%rsp),%al");
+				return;
+			case (16):
+			case (17):
+			case (18):
+				Compiler.text.println("popw %ax");
+				return;
+			case (32):
+				Compiler.text.println("popw %ax");
+				Compiler.text.println("popw %dx");
+				return;
+			case (33):
+				Compiler.text.println("popl %eax");
+				return;
+			case (34):
+				Compiler.text.println("addq $4,%rsp");
+				Compiler.text.println("movl (%rsp),%eax");
+				return;
+			case (64):
+				Compiler.text.println("popw %ax");
+				Compiler.text.println("popw %dx");
+				Compiler.text.println("popw %cx");
+				Compiler.text.println("popw %bx");
+				return;
+			case (65):
+				Compiler.text.println("popl %eax");
+				Compiler.text.println("popl %edx");
+				return;
+			case (66):
+				Compiler.text.println("popq %rax");
+			default:
+				throw new InternalCompilerException("Unidentifiable or disallowed operand size and / or unidentifiable target");
+		}
+	}
+	public void popAddr() throws InternalCompilerException {
+		switch (size + Compiler.mach) {
+			case (8):
+				Compiler.text.println("addw $1,%sp");
+				Compiler.text.println("movb (%sp),%al");
+				Compiler.text.println("movb %al,(%bx)");
+				return;
+			case (9):
+				Compiler.text.println("addl $1,%esp");
+				Compiler.text.println("movb (%esp),%bl");
+				Compiler.text.println("movb %bl,(%eax)");
+				return;
+			case (10):
+				Compiler.text.println("addq $1,%rsp");
+				Compiler.text.println("movb (%rsp),%bl");
+				Compiler.text.println("movb %bl,(%rax)");
+				return;
+			case (16):
+				Compiler.text.println("popw (%bx)");
+				return;
+			case (17):
+				Compiler.text.println("popw (%eax)");
+				return;
+			case (18):
+				Compiler.text.println("popw (%rax)");
+				return;
+			case (32):
+				Compiler.text.println("popw (%bx)");
+				Compiler.text.println("popw 2(%bx)");
+				return;
+			case (33):
+				Compiler.text.println("popl (%eax)");
+				return;
+			case (34):
+				Compiler.text.println("popw (%rax)");
+				Compiler.text.println("popw 2(%rax)");
+				return;
+			case (64):
+				Compiler.text.println("popw (%bx)");
+				Compiler.text.println("popw 2(%bx)");
+				Compiler.text.println("popw 4(%bx)");
+				Compiler.text.println("popw 6(%bx)");
+				return;
+			case (65):
+				Compiler.text.println("popl (%eax)");
+				Compiler.text.println("popl 4(%eax)");
+				return;
+			case (66):
+				Compiler.text.println("popq (%rax)");
+			default:
+				throw new InternalCompilerException("Unidentifiable or disallowed operand size and / or unidentifiable target");
+		}
+	}
+	public void toAddr() throws CompilationException, InternalCompilerException {
+		if (!(addressable())) {
+			throw new InternalCompilerException("Attempt to use the value of a non-addressable type as an address");
+		}
+		switch (Compiler.mach + size) {
+			case (16):
+				Compiler.text.println("movw %ax,%bx");
+				return;
+			case (32):
+			case (64):
+				throw new CompilationException("Direct usage of an address size that is not supported by the target");
+			case (17):
+				Compiler.text.println("movzwl %ax,%eax");
+			case (31):
+				return;
+			case (65):
+				throw new CompilationException("Direct usage of an address size that is not supported by the target");
+			case (18):
+				Compiler.text.println("movzwl %ax,%eax");
+			case (34):
+				Compiler.text.println("and %eax,%eax");
+			case (66):
+				return;
+			default:
+				throw new InternalCompilerException("Unidentifiable or disallowed operand size and / or unidentifiable target");
 		}
 	}
 }
@@ -2671,7 +2859,7 @@ class Operator extends Item {
 	static final Operator MUL = new Operator(false, '*');//("*") Arithmetic multiplication
 	static final Operator DIV = new Operator(false, '/');//("/") Arithmetic division ("/")
 	static final Operator SHR = new Operator(false, ']');//(">>") Bit-wise zero-filling right shift
-	static final Operator MSHR = new Operator(false, ')');//(">>|") Bit-wise MSB-duplicating right shift
+	static final Operator MSHR = new Operator(false, 'M');//(">>|") Bit-wise MSB-duplicating right shift
 	static final Operator SHL = new Operator(false, '[');//("<<") Bit-wise zero-filling left shift
 	static final Operator ROR = new Operator(false, '}');//(">>>") Bit-wise right roll
 	static final Operator ROL = new Operator(false, '{');//("<<<") Bit-wise left roll
@@ -2681,6 +2869,7 @@ class Operator extends Item {
 	static final Operator OR = new Operator(false, '|');//("|") Bit-wise or
 	static final Operator GT = new Operator(false, '>');//(">") Greater than
 	static final Operator LT = new Operator(false, '<');//("<") Less than
+	static final Operator STO = new Operator(false, ')');//("->") Store to memory
 	final boolean unary;
 	final int id;
 	Operator(boolean un, int ident) {
@@ -2707,7 +2896,10 @@ class Operator extends Item {
 			throw new InternalCompilerException("Not a binary operator: " + this.toString());
 		}
 		FullType RHtyp = RHO.type;
+		boolean alt = false;
 		switch (id) {
+			case ('-'):
+				alt = true;
 			case ('+'):
 				switch (LHO.type.size()) {
 					case (64):
@@ -2724,7 +2916,12 @@ class Operator extends Item {
 										Compiler.text.println("pushl %eax");//TODO prevent the need for this move by bring()-ing directly to %bx and preserving %ax (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function might warn this function that it would be left in %ax)
 										RHO.bring();
 										Compiler.text.println("popl %ebx");
-										Compiler.text.println("addl %ebx,%eax");//TODO add to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
+										if (alt) {//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
+											Compiler.text.println("subl %ebx,%eax");
+										}
+										else {
+											Compiler.text.println("addl %ebx,%eax");
+										}
 										if ((LHO.type == Type.a32) || (RHtyp.type == Type.a32)) {
 											return FullType.u32;
 										}
@@ -2759,7 +2956,12 @@ class Operator extends Item {
 								Compiler.text.println("pushw %ax");//TODO prevent the need for this move by bring()-ing directly to %bx and preserving %ax (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function might warn this function that it would be left in %ax)
 								RHO.bring();
 								Compiler.text.println("popw %bx");
-								Compiler.text.println("addw %bx,%ax");//TODO add to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
+								if (alt) {//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
+									Compiler.text.println("subw %bx,%ax");
+								}
+								else {
+									Compiler.text.println("addw %bx,%ax");
+								}
 								if ((LHO.type == Type.a16) || (RHtyp.type == Type.a16)) {
 									return FullType.u16;
 								}
@@ -2782,6 +2984,19 @@ class Operator extends Item {
 					default:
 						throw new InternalCompilerException("Illegal datum size");
 				}
+			case (')'):
+				if (!(RHtyp.type.addressable())) {
+					throw new CompilationException("Attempted storage of a value to a non-addressable type");
+				}
+				if ((RHtyp.gives == null) || (RHtyp.runsWith != null)) {
+					Util.warn("Storage to an address which does not have a pointing clause");
+				}
+				else if (!(LHO.provides(RHtyp.gives))) {
+					Util.warn("Non-provisional storage");
+				}
+				//TODO finish
+				//if ()
+				throw new NotImplementedException();
 			default:
 				throw new NotImplementedException();
 		}
@@ -3157,8 +3372,9 @@ class Expression extends Value {
 		return last;
 	}
 	static Expression from(int ending) throws InternalCompilerException, IOException, CompilationException {
-		return from(ending, null);
-	}static Expression from(int ending, Item pri) throws InternalCompilerException, IOException, CompilationException {
+		return from(ending, ending, null);
+	}
+	static Expression from(int ending, Item pri) throws InternalCompilerException, IOException, CompilationException {
 		return from(ending, ending, pri);
 	}
 	static Expression from(int ending, int ending2) throws InternalCompilerException, IOException, CompilationException {
@@ -3323,7 +3539,13 @@ class Expression extends Value {
 									ex.add(last = Operator.ADD);
 									break;
 								case ('-'):
-									ex.add(last = Operator.SUB);
+									if ((i = Util.read()) == '>') {
+										ex.add(last = Operator.STO);
+									}
+									else {
+										Util.unread(i);
+										ex.add(last = Operator.SUB);
+									}
 									break;
 								case ('*'):
 									ex.add(last = Operator.MUL);
