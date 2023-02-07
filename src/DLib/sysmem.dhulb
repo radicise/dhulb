@@ -24,7 +24,7 @@ addr allocate(int amntBytes) {
 					ja allocate_lin32_err
 					addl $0x18,%esp
 					popl %ebx
-					movl %ebp,%esp # not needed if ebx was the first thing in stack space after the base pointer
+					movl %ebp,%esp # not needed if %ebx was the first thing in stack space after the base pointer
 					popl %ebp
 					ret
 					allocate_lin32_err:

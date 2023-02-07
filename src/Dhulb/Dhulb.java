@@ -533,7 +533,7 @@ class Util {
 	static ArrayList<String> primsk = new ArrayList<String>();
 	static String[] primse = new String[]{"u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "float", "addr", "int", "sizeof"};//TODO maybe but probably not: remove the platform-dependent aliases, use a plug-in for them instead
 	static ArrayList<Integer> inpork = new ArrayList<Integer>();
-	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!'};
+	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!', '~', '@'};
 	static ArrayList<String> nondefk = new ArrayList<String>();
 	static String[] nondefe = new String[]{"this"};
 	static ArrayList<Integer> idesk = new ArrayList<Integer>();
@@ -689,17 +689,30 @@ class Util {
 		}
 		return sb.toString();
 	}
+	static FullType fromAddr() throws InternalCompilerException {
+		switch (Compiler.mach) {
+			case (0):
+				Compiler.text.println("movw %bx,%ax");
+				return FullType.a16;
+			case (1):
+				return FullType.a32;
+			case (2):
+				return FullType.a64;
+			default:
+				throw new InternalCompilerException("Unidentifiable target");
+		}
+	}
 	static String signedRestrict(long val, int size) throws SizeNotFitException, InternalCompilerException {
 		switch (size) {
 			case (8):
 				if ((val > 0x7f) || (val < (-(0x80)))) {
-					throw new SizeNotFitException();
+					throw new SizeNotFitException();//TODO add error message
 				}
 				return herxb(val);
 			case (16):
 				if ((val > 0x7f) || (val < (-(0x80)))) {
 					if ((val > 0x7fff) || (val < (-(0x8000)))) {
-						throw new SizeNotFitException();
+						throw new SizeNotFitException();//TODO add error message
 					}
 					return herxs(val);
 				}
@@ -708,7 +721,7 @@ class Util {
 				if ((val > 0x7f) || (val < (-(0x80)))) {
 					if ((val > 0x7fff) || (val < (-(0x8000)))) {
 						if ((val > 0x7fffffff) || (val < (-(0x80000000)))) {
-							throw new SizeNotFitException();
+							throw new SizeNotFitException();//TODO add error message
 						}
 						return herxi(val);
 					}
@@ -718,7 +731,7 @@ class Util {
 			case (33)://like 32 but no 16-bit
 				if ((val > 0x7f) || (val < (-(0x80)))) {
 					if ((val > 0x7fffffff) || (val < (-(0x80000000)))) {
-						throw new SizeNotFitException();
+						throw new SizeNotFitException();//TODO add error message
 					}
 					return herxi(val);
 				}
@@ -728,7 +741,7 @@ class Util {
 					if ((val > 0x7fff) || (val < (-(0x8000)))) {
 						if ((val > 0x7fffffff) || (val < (-(0x80000000L)))) {
 							if ((val > 0x7fffffffffffffffL) || (val < (-(0x8000000000000000L)))) {
-								throw new SizeNotFitException();
+								throw new SizeNotFitException();//TODO add error message
 							}
 							return herxl(val);
 						}
@@ -1275,7 +1288,7 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 	String name;
 	LinkedHashMap<String, StructEntry> fields;
 	LinkedHashMap<String, Function> funcs;//each function has `this' set appropriately for the function, it being the leftmost parameter (hidden), when passing by reference, or a stack variable which holds the logical address offset value (hidden), when passing by value. When passing by value, the field names themselves can also be used because they are declared as fields in the function
-	private Structure() {
+	private Structure() {//TODO alert the user if there is nothing between a dot operator and the next appropriate delimiter, not including whitespace
 		length = 0;
 		alignmentBytes = 1;
 		fields = new LinkedHashMap<String, StructEntry>();
@@ -2030,15 +2043,8 @@ class FullType {//Like Type but with possible pointing or running clauses
 		if (type instanceof Type) {
 			switch ((Type) type) {
 				case u16:
-					if (!(toType.type.size() == 16)) {//If both the original and casted-to types have a size of 16 bits, the binary data doesn't need to be changed
-						throw new NotImplementedException();
-					}
-					if (toType.type.addressable()) {
-						Util.warn("Cast from a non-addressable type to an addressable type");
-					}
-					break;
 				case s16:
-					if (!(toType.type.size() == 16)) {
+					if (toType.type.size() != 16) {//If both the original and casted-to types have a size of 16 bits, the binary data doesn't need to be changed
 						throw new NotImplementedException();
 					}
 					if (toType.type.addressable()) {
@@ -2046,7 +2052,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 					}
 					break;
 				case a16:
-					if (!(toType.type.size() == 16)) {
+					if (toType.type.size() != 16) {
 						throw new NotImplementedException();
 					}
 					if (toType.type.addressable()) {
@@ -2055,12 +2061,85 @@ class FullType {//Like Type but with possible pointing or running clauses
 						}
 					}
 					break;
+				case u32:
+				case s32:
+					if (toType.type.size() != 32) {
+						throw new NotImplementedException();
+					}
+					if (toType.type.floating()) {
+						throw new NotImplementedException();
+					}
+					if (toType.type.addressable()) {
+						Util.warn("Cast from a non-addressable type to an addressable type");
+					}
+					break;
+				case a32:
+					if (toType.type.size() != 32) {
+						throw new NotImplementedException();
+					}
+					if (toType.type.floating()) {
+						throw new NotImplementedException();
+					}
+					if (toType.type.addressable()) {
+						if (!(this.provides(toType))) {
+							Util.warn("Non-provisional cast from " + this.toString() + " to " + toType.toString());
+						}
+					}
+					break;
+				
 				default:
 					throw new NotImplementedException();
 			}
 			return;
 		}
 		throw new NotImplementedException();
+	}
+	public static void addrToMain(Type getting) throws InternalCompilerException {
+		switch (Compiler.mach + getting.size()) {
+			case (8):
+				Compiler.text.println("movb (%bx),%al");
+				return;
+			case (16):
+				Compiler.text.println("movw (%bx),%ax");
+				return;
+			case (32):
+				Compiler.text.println("movw (%bx),%ax");
+				Compiler.text.println("movw 2(%bx),%dx");
+				return;
+			case (64):
+				Compiler.text.println("movw (%bx),%ax");
+				Compiler.text.println("movw 2(%bx),%dx");
+				Compiler.text.println("movw 4(%bx),%cx");
+				Compiler.text.println("movw 6(%bx),%bx");
+				return;
+			case (9):
+				Compiler.text.println("movb (%eax),%al");
+				return;
+			case (17):
+				Compiler.text.println("movw (%eax),%ax");
+				return;
+			case (33):
+				Compiler.text.println("movl (%eax),%eax");
+				return;
+			case (65):
+				Compiler.text.println("movl 4(%eax),%edx");
+				Compiler.text.println("movl (%eax),%eax");
+				return;
+			case (10):
+				Compiler.text.println("movb (%rax),%al");
+				return;
+			case (18):
+				Compiler.text.println("movw (%rax),%ax");
+				return;
+			case (34):
+				Compiler.text.println("movl (%rax),%eax");
+				return;
+			case (66):
+				Compiler.text.println("movq (%rax),%rax");
+				return;
+			default:
+				throw new InternalCompilerException("Unidentifiable or disallowed operand size and / or unidentifiable target");
+		}
 	}
 }
 class Call extends Value {//TODO make inter-address size calls have the caller save and restore registers which are part of the instruction set that corresponds with the calling convention of the caller and needs to be preserved but is not preserved by the callee
@@ -2317,6 +2396,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 interface Typed {//EVERY Typed MUST have its `size()' result in a positive int that is evenly divisible by 8
 	int size();
 	boolean addressable();
+	boolean floating() throws InternalCompilerException ;
 	default boolean eq(Typed to) {
 		if ((this instanceof Type) != (to instanceof Type)) {
 			return false;
@@ -2360,6 +2440,9 @@ class StructuredType implements Typed {
 	public void toAddr() throws InternalCompilerException {
 		throw new InternalCompilerException("Attempt to use the value of a structural type as an address");
 	}
+	public boolean floating() throws InternalCompilerException {
+		throw new InternalCompilerException("Requested boolean information is not applicable for a structured type");
+	}
 }
 enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	u8 (8, false, false),
@@ -2396,6 +2479,9 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	}
 	public boolean addressable() {
 		return addressable;
+	}
+	public boolean floating() {
+		return floating;
 	}
 	boolean fits(long l, boolean s) throws NotImplementedException {//the boolean expresses if the passed long's bits should be interpreted as signed
 		if (floating) {
@@ -2588,7 +2674,7 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 				throw new CompilationException("Direct usage of an address size that is not supported by the target");
 			case (17):
 				Compiler.text.println("movzwl %ax,%eax");
-			case (31):
+			case (33):
 				return;
 			case (65):
 				throw new CompilationException("Direct usage of an address size that is not supported by the target");
@@ -2859,7 +2945,7 @@ class Operator extends Item {
 	static final Operator MUL = new Operator(false, '*');//("*") Arithmetic multiplication
 	static final Operator DIV = new Operator(false, '/');//("/") Arithmetic division ("/")
 	static final Operator SHR = new Operator(false, ']');//(">>") Bit-wise zero-filling right shift
-	static final Operator MSHR = new Operator(false, 'M');//(">>|") Bit-wise MSB-duplicating right shift
+	static final Operator MSHR = new Operator(false, ')');//(">>|") Bit-wise MSB-duplicating right shift
 	static final Operator SHL = new Operator(false, '[');//("<<") Bit-wise zero-filling left shift
 	static final Operator ROR = new Operator(false, '}');//(">>>") Bit-wise right roll
 	static final Operator ROL = new Operator(false, '{');//("<<<") Bit-wise left roll
@@ -2869,7 +2955,8 @@ class Operator extends Item {
 	static final Operator OR = new Operator(false, '|');//("|") Bit-wise or
 	static final Operator GT = new Operator(false, '>');//(">") Greater than
 	static final Operator LT = new Operator(false, '<');//("<") Less than
-	static final Operator STO = new Operator(false, ')');//("->") Store to memory
+	static final Operator STO = new Operator(false, 'S');//("->") Store to memory
+	static final Operator GET = new Operator(true, '@');//("@") Get a value from memory
 	final boolean unary;
 	final int id;
 	Operator(boolean un, int ident) {
@@ -2886,7 +2973,25 @@ class Operator extends Item {
 		if (!(unary)) {
 			throw new InternalCompilerException("Not a unary operator: " + this.toString());
 		}
-		throw new NotImplementedException();
+		switch (id) {
+			case ('@'):
+				if (!(typ.type.addressable())) {
+					throw new CompilationException("Attempted dereferencing of a non-addressable type");
+				}
+				typ.type.toAddr();
+				if ((typ.gives == null) || (typ.runsWith != null)) {
+					Util.warn("Dereferencing of an address which has no pointing clause; dereferencing a value of the unsigned 8-bit type");
+					FullType.addrToMain(Type.u8);
+					return FullType.u8;
+				}
+				if (!(typ.gives.type instanceof Type)) {
+					throw new CompilationException("Attempted dereferencing of a value of a structural type");
+				}
+				FullType.addrToMain((Type) typ.gives.type);
+				return typ.gives;
+			default:
+				throw new NotImplementedException();
+		}
 	}
 	FullType apply(FullType LHO, Value RHO) throws CompilationException, InternalCompilerException {//Binary; The LHO has already been brought
 		if ((LHO.type instanceof StructuredType) || (RHO.type.type instanceof StructuredType)) {
@@ -2984,7 +3089,7 @@ class Operator extends Item {
 					default:
 						throw new InternalCompilerException("Illegal datum size");
 				}
-			case (')'):
+			case ('S'):
 				if (!(RHtyp.type.addressable())) {
 					throw new CompilationException("Attempted storage of a value to a non-addressable type");
 				}
@@ -2994,9 +3099,10 @@ class Operator extends Item {
 				else if (!(LHO.provides(RHtyp.gives))) {
 					Util.warn("Non-provisional storage");
 				}
-				//TODO finish
-				//if ()
-				throw new NotImplementedException();
+				LHO.type.pushMain();
+				RHO.bring().type.toAddr();
+				LHO.type.popAddr();
+				return Util.fromAddr();
 			default:
 				throw new NotImplementedException();
 		}
@@ -3552,6 +3658,9 @@ class Expression extends Value {
 									break;
 								case ('/'):
 									ex.add(last = Operator.DIV);
+									break;
+								case ('@'):
+									ex.add(last = Operator.GET);
 									break;
 								default:
 									throw new NotImplementedException();
