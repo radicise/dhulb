@@ -1,8 +1,24 @@
 #require "DhulbArray"
 #import "stdalloc"
 
+/**
+ * @Dhulb
+ * @description {
+    a static size array that provides methods to get and set items, as well as properties to get the length in items and the item size in bytes
+ }
+ * @provides {
+    Cleanable
+    Iterable
+ }
+ * @methods {
+    addr*Array<T> constructor ( u32 size ) : creates a new array with the specified size
+    addr*<T> getItem ( u32 idx ) : gets the value at the specified index
+    u8 setItem ( <T> item, u32 idx ) : sets the value at the specified index to the given item
+    u8 clear () : zeros the array
+ }
+ */
 class Array<T> {
-    addr*<T> address;/* TODO We'll talk about the angls brackets later*/
+    addr*<T> address;
     u32 length;
     u32 itemSize;
     addr*Array<T> constructor ( u32 size ) {
@@ -12,10 +28,13 @@ class Array<T> {
         structaddr.length = size;
         return structaddr;
     }
-    addr*T getItem ( u32 idx ) {
+    u8 clear () {
+        return 0;
+    }
+    <T> getItem ( u32 idx ) {
         return @(address+(idx*itemSize));
     }
-    u8 setItem ( T item, u32 idx ) {
+    u8 setItem ( <T> item, u32 idx ) {
         @(address+(idx*itemsize)) <- item;
         sizeof(T);
         /&
@@ -43,10 +62,46 @@ class Array<T> {
             #ENDIF
         &/
     }
-    destroy () {
+    u8 destroy () {
         free(address);
+        return 0;
     }
 }
-class BigArray<T> {
-    addr address;
+
+/**
+ * @Dhulb
+ * @description {
+    a growable list
+ }
+ * @provides {
+    Cleanable
+    Iterable
+ }
+ * @methods {
+    addr*List<T> constructor ( u32 size ) : creates a new List with specified capacity
+    u8 push ( <T> item ) : pushes a new item to the end of the List
+    <T> pop () : removes and returns the last item in the List, throws IndexOutOfBounds if length is zero
+    <T> getItem ( u32 idx ) : returns the item at the specified index
+    u8 setItem ( <T> item, u32 idx ) : sets the item at the specified index to the given value
+ }
+ */
+class List<T> {
+    addr*List<T> constructor ( u32 size ) {
+        return 0;
+    }
+    u8 push ( <T> item ) {
+        return 0;
+    }
+    <T> pop () {
+        return 0;
+    }
+    <T> getItem ( u32 idx ) {
+        return 0;
+    }
+    u8 setItem ( <T> item, u32 idx ) {
+        return 0;
+    }
+    u8 destroy () {
+        return 0;
+    }
 }
