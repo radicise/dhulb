@@ -14,7 +14,7 @@
     addr*Array<T> constructor ( u32 size ) : creates a new array with the specified size
     addr*<T> getItem ( u32 idx ) : gets the value at the specified index
     u8 setItem ( <T> item, u32 idx ) : sets the value at the specified index to the given item
-    u8 clear () : zeros the array
+    u8 clear () : zeroes the array
  }
  */
 class Array<T> {
