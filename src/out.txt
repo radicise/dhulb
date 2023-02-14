@@ -11,6 +11,12 @@ NOKERNEL
 NOFLAGTEST
 FLAG1
 FLAG2
+[import, stdarrays]
+stdarrays
+[require, DhulbArray]
+DhulbArray
+[import, stdalloc]
+stdalloc
 [import, sysmem]
 sysmem
 [ifdef, KERNEL_LINUX_I386]
