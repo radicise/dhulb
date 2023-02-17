@@ -51,8 +51,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static PrintStream texback;
 	public static PushbackInputStream in = new PushbackInputStream(System.in, 64);//Do not `unread' too much
 	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
-	public static final long FALSI = 1;
-	public static final long VERIF = 0;
+	public static final long FALSI = 0;
+	public static final long VERIF = 1;
 	public static boolean typeNicksApplicable = false;
 	public static boolean allowTypeNicks = false;
 	public static Type defUInt = Type.u16;
@@ -70,6 +70,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static TreeMap<String, Structure> structs = new TreeMap<String, Structure>();
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static boolean noViewErrors = false;
+	public static boolean autoGlobals = false;
 	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO implement bulk memory movement syntax
 			try {//TODO create a way for an address to be gotten from a named global function
@@ -208,12 +209,15 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		if (argv[1].contains("t")) {
 			showCompilationErrorStackTrace = true;
 		}
-		if (argv[1].contains("N")) {
+		if (argv[1].contains("N")) {//the `defAdr' alias is needed even if platform-dependent type aliases are not enabled
 			allowTypeNicks = true;
 			typeNicksApplicable = true;
 		}
 		if (argv[1].contains("B")) {
 			noViewErrors = true;
+		}
+		if (argv[1].contains("G")) {
+			autoGlobals = true;
 		}//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
 		try {
 			while (true) {
@@ -236,7 +240,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		Util.skipWhite();
 		i = Util.read();
 		if (i == '}') {
-			throw new BlockEndException("Unexpected end-of-block");
+			throw new BlockEndException("Unexpected end-of-block");//Unexpected by this call, the message only applies to the compilation as a whole if this is not within a block
 		}
 		else if (i == '{') {
 			if (!(inFunc)) {
@@ -268,7 +272,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					}
 				}
 				catch (EOFException E) {
-					throw new CompilationException("Data section block not closed");
+					throw new CompilationException("Data section assembly block not closed");
 				}
 			}
 			else if (i == '&') {
@@ -293,7 +297,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					}
 				}
 				catch (EOFException E) {
-					throw new CompilationException("Code section block not closed");
+					throw new CompilationException("Code section assembly block not closed");
 				}
 			}
 			else if (i == '*') {
@@ -489,7 +493,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 				list.add(new Assignment(sav, Expression.from(';')));
 			}
 			else {
-				list.add(new globalVarDecl(s, typ));
+				list.add(new GlobalVarDecl(s, typ));
 				NoScopeVar thno = new NoScopeVar(s, typ);
 				HVars.put(s, thno);//Before the assignment so that the assignment can refer the the variable itself, which should contain the default value when dealing with a global variable and whatever data was already there when dealing with a stack variable
 				list.add(new Assignment(thno, Expression.from(';')));//TODO Avoid eventually bringing the number if it is constant
@@ -501,7 +505,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 				Util.warn("Implicit interpretation of undefined data");
 			}
 			else {
-				list.add(new globalVarDecl(s, typ));
+				list.add(new GlobalVarDecl(s, typ));
 				HVars.put(s, new NoScopeVar(s, typ));
 				Util.warn("Implicit interpretation of zeroed data");
 			}
@@ -1117,7 +1121,7 @@ class Condition {
 	Condition(Value b) {
 		based = b;
 	}
-	void toZero() throws CompilationException, InternalCompilerException {//sets ZF upon truth; clears it otherwise
+	void toZero() throws CompilationException, InternalCompilerException {//clears ZF upon truth; sets it otherwise
 		int siz = based.bring().type.size();
 		switch (Compiler.mach) {
 			case (0):
@@ -1154,7 +1158,23 @@ class Condition {
 				}
 				break;
 			case (2):
-				throw new NotImplementedException();
+				switch (siz) {
+					case (8):
+						Compiler.text.println("testb %al,%al");
+						break;
+					case (16):
+						Compiler.text.println("testw %ax,%ax");
+						break;
+					case 32:
+						Compiler.text.println("testl %eax,%eax");
+						break;
+					case 64:
+						Compiler.text.println("testl %eax,%eax");
+						break;
+					default:
+						throw new InternalCompilerException("Illegal datum size");
+				}
+				break;
 			default:
 				throw new InternalCompilerException("Unidentifiable target");
 		}
@@ -1247,10 +1267,10 @@ class IfThen extends Conditional {
 			else {
 				if (ending == null) {
 					if (poss.get(i)) {
-						Compiler.text.println("jnz " + esymb);
+						Compiler.text.println("jz " + esymb);
 					}
 					else {
-						Compiler.text.println("jz " + esymb);
+						Compiler.text.println("jnz " + esymb);
 					}
 					thens.get(i).compile();
 					Compiler.text.print(esymb);
@@ -1259,10 +1279,10 @@ class IfThen extends Conditional {
 				else {
 					nsymb = Util.reserve();
 					if (poss.get(i)) {
-						Compiler.text.println("jnz " + nsymb);
+						Compiler.text.println("jz " + nsymb);
 					}
 					else {
-						Compiler.text.println("jz " + nsymb);
+						Compiler.text.println("jnz " + nsymb);
 					}
 					thens.get(i).compile();
 					Compiler.text.println("jmp " + esymb);
@@ -1607,6 +1627,10 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
 		Compiler.text.println(name + ":/*dhulbDoc-v" + Compiler.numericVersion + ":function;" + this.toString() + " " + "call" + abiSize + ";*/");
+		if (Compiler.autoGlobals) {
+			Compiler.text.print(".globl ");
+			Compiler.text.println(name);
+		}
 		switch (abiSize) {
 			case (16):
 				Compiler.text.println("pushw %bp");
@@ -1957,7 +1981,20 @@ class FullType {//Like Type but with possible pointing or running clauses
 		long from = 2L * ((abiSize / 8L) + (((abiSize % 8L) == 0) ? 0L : 1L));
 		Util.skipWhite();
 		int ci = Util.read();
+		int l;
 		if (ci == ')') {
+			if (ext != null) {
+				for (Map.Entry<String, FullType> et : ext.entrySet()) {
+					nam = et.getKey();
+					ft = et.getValue();
+					if (fl.containsKey(nam)) {
+						throw new CompilationException("Duplicate argument name in function declaration: " + nam);
+					}
+					fl.put(nam, new StackVar(from, ft));
+					l = ft.type.size();
+					from += (((l / abiSize) * (abiSize / 8L)) + (((l % abiSize) == 0) ? 0L : (abiSize / 8L)));
+				}
+			}
 			return fl;
 		}
 		Util.unread(ci);
@@ -1975,7 +2012,8 @@ class FullType {//Like Type but with possible pointing or running clauses
 				throw new CompilationException("Duplicate argument name in function declaration: " + nam);
 			}
 			fl.put(nam, new StackVar(from, ft));
-			from += (((ft.type.size()) / 8L) + (((ft.type.size() % 8L) == 0) ? 0L : 1L));
+			l = ft.type.size();
+			from += (((l / abiSize) * (abiSize / 8L)) + (((l % abiSize) == 0) ? 0L : (abiSize / 8L)));
 			Util.skipWhite();
 			ci = Util.read();
 			if (ci == ')') {
@@ -1987,7 +2025,8 @@ class FullType {//Like Type but with possible pointing or running clauses
 							throw new CompilationException("Duplicate argument name in function declaration: " + nam);
 						}
 						fl.put(nam, new StackVar(from, ft));
-						from += (((ft.type.size()) / 8L) + (((ft.type.size() % 8L) == 0) ? 0L : 1L));
+						l = ft.type.size();
+						from += (((l / abiSize) * (abiSize / 8L)) + (((l % abiSize) == 0) ? 0L : (abiSize / 8L)));
 					}
 				}
 				return fl;
@@ -2145,7 +2184,8 @@ class FullType {//Like Type but with possible pointing or running clauses
 class Call extends Value {//TODO make inter-address size calls have the caller save and restore registers which are part of the instruction set that corresponds with the calling convention of the caller and needs to be preserved but is not preserved by the callee
 	final Value addr;//size of the type determines the ABI used
 	final Value[] args;//array length is the same as the amount of values used in the call
-	final long pushedBits;
+	final long pushedBits;//total amount of bits used as arguments to the call, not necessarily the amount pushed to the stack as arguments to the call
+	final long inStack;//when Compiler.mach equals 2, the value is defined as being the amount of bits pushed to the stack as arguments to the call
 	Call(Value v, Value[] g) throws CompilationException, InternalCompilerException {
 		args = g;
 		addr = v;
@@ -2159,16 +2199,20 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			throw new InternalCompilerException("This exceptional condition should not occur!");
 		}
 		type = v.type.gives;
-		pushedBits = warn(args, v.type.runsWith);
+		long[] pInfo = warn(args, v.type.runsWith, addr.type.type.size());
+		pushedBits = pInfo[0];
+		inStack = pInfo[1];
 		if ((pushedBits % 8L) != 0L) {
-			throw new InternalCompilerException("Non-integral amount of bytes pushed for function call");
+			throw new InternalCompilerException("Non-integral amount of bytes used for function call");
 		}
 	}
-	static long warn(Value[] args, FullType[] dargs) throws InternalCompilerException {
+	static long[] warn(Value[] args, FullType[] dargs, int abiSize) throws InternalCompilerException {
 		boolean dif = false;
 		long totalFn = 0;
 		long totalAr = 0;
 		int i = -(1);
+		long pur = 0;
+		int l;
 		for (FullType t : dargs) {
 			i++;
 			totalFn += t.type.size();
@@ -2176,40 +2220,53 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 				dif = true;
 			}
 			else {
-				totalAr += args[i].type.type.size();
+				l = args[i].type.type.size();
+				if (i > 5) {
+					pur += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+				}
+				totalAr += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
 				if (totalFn != totalAr) {
 					dif = true;
 				}
 			}
 		}
 		for (i++; i < args.length; i++) {
-			totalAr += args[i].type.type.size();
+			l = args[i].type.type.size();
+			if (i > 5) {
+				pur += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+			}
+			totalAr += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
 		}
 		if (dif) {
-			if (totalFn > totalAr) {
-				Util.warn("Function call provides less bits of data than specified by the function argument(s)");
-			}
-			else if (totalAr > totalFn) {
-				throw new NotImplementedException("This error message has not yet been written!");//TODO let compiler warn that this is a raw conversion, even noting this in ways which allow the last argument to be noted to be partially-used (the amount used is noted) when it is
+			if (Compiler.mach == 2) {
+				Util.warn("Provided arguments sizes of function call do not agree with those of the specified arguments of the function");
 			}
 			else {
-				StringBuilder sb = new StringBuilder();
-				sb.append("Raw conversion from provided argument(s) (");
-				for (i = 0; i < args.length; i++) {
-					sb.append(args[i].type.toString());
-					if (i < (args.length - 1)) {
-						sb.append(", ");
-					}
+				if (totalFn > totalAr) {
+					Util.warn("Function call provides less bits of data than specified by the function argument(s)");
 				}
-				sb.append(") to specified argument(s) (");
-				for (i = 0; i < dargs.length; i++) {
-					sb.append(dargs[i].toString());
-					if (i < (dargs.length - 1)) {
-						sb.append(", ");
-					}
+				else if (totalAr > totalFn) {
+					throw new NotImplementedException("This error message has not yet been written!");//TODO let compiler warn that this is a raw conversion, even noting this in ways which allow the last argument to be noted to be partially-used (the amount used is noted) when it is
 				}
-				sb.append(")");
-				Util.warn(sb.toString());
+				else {
+					StringBuilder sb = new StringBuilder();
+					sb.append("Raw conversion from provided argument(s) (");
+					for (i = 0; i < args.length; i++) {
+						sb.append(args[i].type.toString());
+						if (i < (args.length - 1)) {
+							sb.append(", ");
+						}
+					}
+					sb.append(") to specified argument(s) (");
+					for (i = 0; i < dargs.length; i++) {
+						sb.append(dargs[i].toString());
+						if (i < (dargs.length - 1)) {
+							sb.append(", ");
+						}
+					}
+					sb.append(")");
+					Util.warn(sb.toString());
+				}
 			}
 		}
 		else {
@@ -2250,7 +2307,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 				throw new InternalCompilerException("This exceptional condition should not occur!");//reaching this line of code should not be possible
 			}
 		}
-		return totalAr;
+		return new long[]{totalAr, pur};
 	}
 	FullType bring() throws CompilationException, InternalCompilerException {
 		switch (Compiler.mach) {
@@ -2259,7 +2316,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 					case (16):
 						before16_16();
 						args16_16(args.length, args);
-						addr.bring();
+						addr.bring().type.toAddr();
 						call16();
 						after16_16(pushedBits);
 						break;
@@ -2278,7 +2335,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 					case (32):
 						before32_32();
 						args32_32(args.length, args);
-						addr.bring();
+						addr.bring().type.toAddr();
 						call32();
 						after32_32(pushedBits);
 						break;
@@ -2289,7 +2346,23 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 				}
 				break;
 			case (2):
-				throw new NotImplementedException();
+					switch (addr.type.type.size()) {
+					case (16):
+						throw new NotImplementedException();
+					case (32):
+						throw new NotImplementedException();
+					case (64):
+//						before64_64();
+//						args64_64(args.length, args);
+//						addr.bring().type.toAddr();
+//						call64();
+//						after64_64(pushedBits);
+//						break;
+						throw new NotImplementedException();
+					default:
+						throw new InternalCompilerException("Illegal operand size");
+				}
+//				break;
 			default:
 				throw new InternalCompilerException("Illegal target");
 		}
@@ -2297,6 +2370,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 	}
 	static Value[] from() throws CompilationException, InternalCompilerException, IOException {//reads starting from after the opening parenthesis of the arguments, consumes the closing parenthesis
 		ArrayList<Value> args = new ArrayList<Value>();
+		Util.skipWhite();
 		int i = Util.read();
 		if (i == ')') {
 			return new Value[0];
@@ -2314,6 +2388,8 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 	static void before16_16() {
 	}
 	static void before32_32() {
+	}
+	static void before64_64() {
 	}
 	static void after16_16(long pb) throws SizeNotFitException, InternalCompilerException {
 		try {
@@ -2336,7 +2412,8 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		}
 	}
 	static void args16_32(int amnt, Value[] vals) throws InternalCompilerException, CompilationException {
-		args16_16(amnt, vals);
+//		args16_16(amnt, vals);
+		throw new NotImplementedException();
 	}
 	static void args16_16(int amnt, Value[] vals) throws InternalCompilerException, CompilationException {//argument pushing for calls from 16-bit code using the 16-bit ABI or the 32-bit ABI (the 32-bit ABI is the System V ABI for Intel386 and the 16-bit ABI is the same thing but with 16-bit calls instead of 32-bit calls and %ebx can be scratched in functions and data is returned from functions, from lowest to highest word, in %ax, %dx, %cx, and %bx)
 		FullType typ;
@@ -2344,8 +2421,8 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			typ = vals[i].bring();
 			switch (typ.type.size()) {
 				case (8):
-					Compiler.text.println("decw %sp");
-					Compiler.text.println("movb %al,(%sp)");
+					Compiler.text.println("xorb $ah,%ah");
+					Compiler.text.println("pushw %ax");
 					break;
 				case (64):
 					Compiler.text.println("pushw %bx");
@@ -2366,8 +2443,8 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			typ = vals[i].bring();
 			switch (typ.type.size()) {
 				case (8):
-					Compiler.text.println("decw %sp");
-					Compiler.text.println("movb %al,(%sp)");
+					Compiler.text.println("subw $4,%esp");
+					Compiler.text.println("movzbl %al,(%esp)");
 					break;
 				case (64):
 					Compiler.text.println("pushl %edx");
@@ -2375,7 +2452,8 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 					Compiler.text.println("pushl %eax");
 					break;
 				case (16):
-					Compiler.text.println("pushw %ax");
+					Compiler.text.println("subw $4,%sp");
+					Compiler.text.println("movzwl %ax,(%esp)");
 					break;
 				default:
 					throw new InternalCompilerException("Illegal datum size");
@@ -2383,7 +2461,6 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		}
 	}
 	void call16() {//TODO obey the ABI
-		Compiler.text.println("movw %ax,%bx");
 		Compiler.text.println("callw *%bx");
 	}
 	void call32() {//TODO save registers
@@ -2703,6 +2780,63 @@ interface Stacked {
 	long minOff();
 	long spos();
 }
+class StrDecl implements Compilable {
+	final String text;
+	final String symb;
+	StrDecl(String tex, String sym) {
+		text = tex;
+		symb = sym;
+	}
+	public void compile() {
+		Compiler.rwdata.print(symb);
+		Compiler.rwdata.println(':');
+		Compiler.rwdata.print(".asciz \"");
+		Compiler.rwdata.print(text);
+		Compiler.rwdata.println('\"');
+	}
+}
+class Str extends Value {
+	final String text;
+	final String symb;
+	final StrDecl assoc;
+	private Str(String tex) throws InternalCompilerException {//TODO avoid multiple identical string declarations being put out for different string usages; decide if string texts which mean the same thing but have different representations, such as by using different escapes, are identical
+		text = tex;
+		symb = Util.reserve();
+		type = new FullType(Compiler.defAdr, FullType.u8);
+		assoc = new StrDecl(tex, symb);
+	}
+	FullType bring() throws InternalCompilerException {
+		if (type.type instanceof StructuredType) {
+			throw new InternalCompilerException("String backs as a structural type");
+		}
+		switch ((Type) type.type) {
+			case a16:
+				Compiler.text.println("movw $" + symb + ",%ax");
+				return type;
+			case a32:
+				Compiler.text.println("movl $" + symb + ",%eax");
+				return type;
+			case a64:
+				Compiler.text.println("movq $" + symb + ",%rax");
+				return type;
+			default:
+			throw new InternalCompilerException("String backs as a non-addressable type");
+		}
+	}
+	static Str from() throws InternalCompilerException, IOException {//starts reading from directly after the opening doublequote
+		int i;
+		boolean sl = false;
+		StringBuilder sb = new StringBuilder();
+		while (true) {
+			i = Util.read();
+			if ((i == '\"') && (!(sl))) {
+				return new Str(sb.toString());
+			}
+			sl = i == '\\';
+			sb.appendCodePoint(i);
+		}
+	}
+}
 class Block implements Doable, Stacked {
 	Doable[] comps;
 	private transient long bpOff = 0;//offset from the base pointer 
@@ -2802,15 +2936,19 @@ abstract class Value extends Item implements Doable {
 		bring();
 	}
 }
-class globalVarDecl implements Compilable {
+class GlobalVarDecl implements Compilable {
 	final FullType type;
 	final String name;
-	globalVarDecl(String s, FullType typ) {
+	GlobalVarDecl(String s, FullType typ) {
 		type = typ;
 		name = s;
 	}
 	public void compile() throws InternalCompilerException {
 		Compiler.rwdata.println(name + ":/*dhulbDoc-v" + Compiler.numericVersion + ":globalvar;" + type.toString() + " " + name + ";*/");//automatic documentation, the name should be the same as the symbol name
+		if (Compiler.autoGlobals) {
+			Compiler.rwdata.print(".globl ");
+			Compiler.rwdata.println(name);
+		}
 		switch (type.type.size()) {
 			case (8):
 				Compiler.rwdata.println(".byte 0x00");
@@ -3510,6 +3648,11 @@ class Expression extends Value {
 				else {
 					ex.add(last = from(')'));
 				}
+				continue;
+			}
+			if (tg == '\"') {
+				ex.add(last = Str.from());
+				((Str) last).assoc.compile();
 				continue;
 			}
 			else if ((tg == ending) || (tg == ending2)) {
