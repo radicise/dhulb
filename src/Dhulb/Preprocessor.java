@@ -128,18 +128,18 @@ public class Preprocessor {// takes file stream and the directory path where the
                     if (minimalImport) {
                         printstrm.print("minimal: ");
                     }
-                    if (imported.contains(line[1])) {
+                    File f = new File(cwd.toString(), line[1]);
+                    if (!f.exists()) {
+                        f = new File(libPath.toString(), line[1] + ".dhulb");
+                    }
+                    if (imported.contains(f.toPath().toString())) {
                         printstrm.println("already imported");
                     } else {
                         printstrm.println(line[1]);
-                        imported.add(line[1]);
+                        imported.add(f.toPath().toString());
                         try {
                             if (importComments) {
                                 output.print("/* begin imported content from: " + line[1] + " */\n");
-                            }
-                            File f = new File(cwd.toString(), line[1]);
-                            if (!f.exists()) {
-                                f = new File(libPath.toString(), line[1] + ".dhulb");
                             }
                             preprocess(new BufferedReader(new InputStreamReader(new FileInputStream(f))), Paths.get(f.getParent()), output);
                             if (importComments) {
@@ -158,11 +158,15 @@ public class Preprocessor {// takes file stream and the directory path where the
                         }
                     }
                 } else if (line[0].equalsIgnoreCase("utilize")) {
-                    if (utilized.contains(line[1])) {
+                    File f = new File(cwd.toString(), line[1]);
+                    if (!f.exists()) {
+                        f = new File(libPath.toString(), line[1]);
+                    }
+                    if (utilized.contains(f.toPath().toString())) {
                         printstrm.println("already utilized");
                     } else {
                         printstrm.println(line[1]);
-                        utilized.add(line[1]);
+                        utilized.add(f.toPath().toString());
                         /*
                          * #utilise nosymb|nodoc|docscan|all “file”, defaults to "docscan"
                          * Assembles an assembly file to a file of the name of the same name with “__assembled” appended
@@ -178,10 +182,6 @@ public class Preprocessor {// takes file stream and the directory path where the
                         try {
                             if (importComments) {
                                 output.print("/* begin utilized content from: " + line[1] + " */\n");
-                            }
-                            File f = new File(cwd.toString(), line[1]);
-                            if (!f.exists()) {
-                                f = new File(libPath.toString(), line[1]);
                             }
                             int argval = line.length > 2 ? (line[2].equalsIgnoreCase("docscan") ? 0 : (line[2].equalsIgnoreCase("nosymb") ? 3 : (line[2].equalsIgnoreCase("all") ? 1 : (line[2].equalsIgnoreCase("nodoc") ? 2 : 0)))) : 0;
                             String toScan = new String(Files.readAllBytes(f.toPath()));
@@ -421,6 +421,7 @@ public class Preprocessor {// takes file stream and the directory path where the
             rOut.close();
             rOut = rec;
         }
+        output.println("/*@Dhulb\n\n@utilize\n" + String.join("\n", utilized) + "\n*/");
         output.write(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
         rOut.close();
     }
