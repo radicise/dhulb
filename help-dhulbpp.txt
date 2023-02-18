@@ -6,8 +6,16 @@ dhulbpp -|<relevant_path> -|<working_path> [<OPTION>...]
 dhulbpp --help
 
 Argument variables:
-	relevant_path	Represents a path where information relevant to the pre-processing should be printed to; if omitted, the relevant information will not be output
-	working_path	Represents a path that the pre-processor should start working from; if omitted, that of the current working directory is used for that purpose
-	OPTION	Represents an option being enabled, consists of one of the following:
-		-comment-imports	Insert comments corresponding to import statements into the output, surrounding the imported content
-		-pass-comments	Pass comments from input to the output
+	relevant_path -- Represents a path where information relevant to the pre-processing should be printed to; if omitted, the relevant information will not be output
+	working_path -- Represents a path that the pre-processor should start working from; if omitted, that of the current working directory is used for that purpose
+	OPTION   Represents an option being enabled, consists of one of the following:
+		-comment-imports -- Insert comments corresponding to import statements into the output, surrounding the imported content
+		-pass-comments -- Pass comments from input to the output
+		-no-cfg-file -- causes no config files to be read
+		-cwd= -CWD= -- sets the working directory of the preprocessor
+		-conf= -CONF= -- specifies a config file to use (used in combination with the /etc and $HOME files)
+		-lp= -LP= -- adds a library path
+		-ep= -EP= -- adds an extension path
+		-dp= -DP= -- adds a definition path
+		[NAME] -- adds preprocessor variable [NAME] with value 1
+		[NAME]=[VALUE] -- adds preprocessor variable [NAME] with value [VALUE]

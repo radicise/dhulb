@@ -209,8 +209,8 @@ public class Preprocessor {// takes file stream and the directory path where the
                             String toScan = new String(Files.readAllBytes(f.toPath()));
                             for (String scanLine : toScan.split("\n")) {
                                 if (scanLine.matches("^[\\s]*[a-zA-Z0-9_]+:")) { // does checks on labels
-                                    if (scanLine.contains("/*dhulbDoc")) {
-                                        //
+                                    if (scanLine.contains("/*dhulbDoc") && argval < 2) {
+                                        
                                     } else if (argval > 0 && argval < 3) {
                                         output.println("imply u8 " + scanLine.trim().split(":", 2)[0] + ";");
                                     }
@@ -399,7 +399,11 @@ public class Preprocessor {// takes file stream and the directory path where the
                 " -no-cfg-file -- causes no config files to be read"+
                 " -cwd= -CWD= -- sets the working directory of the preprocessor"+
                 " -conf= -CONF= -- specifies a config file to use (used in combination with the /etc and $HOME files)"+
-                " -ep= -EP= -- sets the extension path"
+                " -lp= -LP= -- adds a library path"+
+                " -ep= -EP= -- adds an extension path"+
+                " -dp= -DP= -- adds a definition path"+
+                " [NAME] -- adds preprocessor variable [NAME] with value 1"+
+                " [NAME]=[VALUE] -- adds preprocessor variable [NAME] with value [VALUE]"
             );
             return;
         }
