@@ -2,7 +2,7 @@
 set -e
 cp boot.s boot-inter.s
 cat io.s >> boot-inter.s
-dhulbc 16 -tNGT < ${1} >> boot-inter.s
+dhulbpp - - < test.dhulb | dhulbc 16 -tNGT >> boot-inter.s
 as -m16 -o boot.o boot-inter.s
 strip boot.o
 FILEOFF=$(otool -l boot.o | grep "fileoff" | grep -oE -m 1 '[^ ]+$')
