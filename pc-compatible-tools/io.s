@@ -1,13 +1,10 @@
-.data
-cursor_pos_w:
-	.byte 0x00
 .text
 .code16
 set_video_mode: #dhulbDoc-v1: s16 set_video_mode(u8)
 	xorb %ah,%ah
 	pushw %bp
 	movw %sp,%bp
-	movb 0x02(%bp),%al
+	movb 0x04(%bp),%al
 	int $0x10
 	jc set_video_mode__on_error
 	xorb %al,%al
@@ -50,14 +47,13 @@ print: #dhulbDoc-v1: u16 print(a16*u8, u16)
 	xorw %dx,%dx
 	movb print_format(,1),%ah
 	print__read_char:
-	decw %cx
-	jz print__end
-	movb %ds:(%si),%al
+	lodsb
 	testb %al,%al
 	jz print__end
-	movw %ax,%es:(%di)
+	stosw
 	incw %dx
-	addw $0x0002,%di
+	decw %cx
+	jz print__end
 	jmp print__read_char
 	print__end:
 	movw %di,%ax

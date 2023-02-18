@@ -1,7 +1,10 @@
 .text
 .code16
 booting_start:
+ljmp $0x07c0,$0x0005
 #TODO save registers
+movw $0x07c0,%ax
+movw %ax,%ds
 read:
 movw $0x0211,%ax
 movw $0x0002,%cx
@@ -15,10 +18,20 @@ movw $0x0200,%bx
 clc
 int $0x13
 jc booting_on_error
+cld
 callw entry
-hlt
+prgm_aft:
+nop
+nop
+nop
+nop
+jmp prgm_aft
 booting_on_error:
-hlt
+nop
+nop
+nop
+nop
+jmp booting_on_error
 .set bytes_code, . - booting_start
 .space 510 - bytes_code
 .byte 0x55
