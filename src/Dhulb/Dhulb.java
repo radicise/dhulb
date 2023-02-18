@@ -71,6 +71,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static ArrayList<Compilable> program = new ArrayList<Compilable>();
 	public static boolean noViewErrors = false;
 	public static boolean autoGlobals = false;
+	public static boolean oneText = false;
 	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		try {//TODO implement bulk memory movement syntax
 			try {//TODO create a way for an address to be gotten from a named global function
@@ -173,9 +174,30 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		epilogue.flush();
 	}
 	public static void ma(String[] argv) throws CompilationException, InternalCompilerException, IOException {//TODO make some system for the compiler to know and manage needed register preservation
+		if (argv[1].contains("t")) {
+			showCompilationErrorStackTrace = true;
+		}
+		if (argv[1].contains("N")) {//the `defAdr' alias is needed even if platform-dependent type aliases are not enabled
+			allowTypeNicks = true;
+			typeNicksApplicable = true;
+		}
+		if (argv[1].contains("B")) {
+			noViewErrors = true;
+		}
+		if (argv[1].contains("G")) {
+			autoGlobals = true;
+		}
+		if (argv[1].contains("T")) {
+			oneText = true;
+		}//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
+		if (oneText) {
+			Compiler.prologue.println(".text");
+		}
+		else {
+			Compiler.rwdata.println(".data");
+			Compiler.text.println(".text");
+		}
 		int madec = Integer.parseInt(argv[0]);
-		Compiler.rwdata.println(".data");
-		Compiler.text.println(".text");
 		if (madec == 16) {
 			Compiler.text.println(".code16");
 			mach = 0;
@@ -206,19 +228,6 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		else {
 			throw new InternalCompilerException("Unidentifiable target");
 		}
-		if (argv[1].contains("t")) {
-			showCompilationErrorStackTrace = true;
-		}
-		if (argv[1].contains("N")) {//the `defAdr' alias is needed even if platform-dependent type aliases are not enabled
-			allowTypeNicks = true;
-			typeNicksApplicable = true;
-		}
-		if (argv[1].contains("B")) {
-			noViewErrors = true;
-		}
-		if (argv[1].contains("G")) {
-			autoGlobals = true;
-		}//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
 		try {
 			while (true) {
 				getCompilable(program, false, null);
@@ -2215,7 +2224,8 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		int l;
 		for (FullType t : dargs) {
 			i++;
-			totalFn += t.type.size();
+			l = t.type.size();
+			totalFn += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
 			if (args.length <= i) {
 				dif = true;
 			}
@@ -2421,7 +2431,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			typ = vals[i].bring();
 			switch (typ.type.size()) {
 				case (8):
-					Compiler.text.println("xorb $ah,%ah");
+					Compiler.text.println("xorb %ah,%ah");
 					Compiler.text.println("pushw %ax");
 					break;
 				case (64):
