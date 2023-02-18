@@ -379,21 +379,22 @@ public class Preprocessor {// takes file stream and the directory path where the
         }
         printstrm.println("Loading Config File:");
         String[] cfg = new String(Files.readAllBytes(cfgFile), StandardCharsets.UTF_8).split("[\n\r]+");
+        String homeStr = System.getenv("HOME");
         for (String line : cfg) {
             line = line.trim();
             if (line.startsWith("#")) { // comments
                 continue;
             }
             if (line.startsWith("LibPath=")) { // dhulb library path
-                String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
+                String s = line.split("=",2)[1].replaceAll("%CWD%", cwdStr).replaceAll("%HOME%", homeStr);
                 libPaths.add(Paths.get(s));
                 printstrm.println("LibPath="+s);
             } else if (line.startsWith("ExtPath=")) { // dhulb extension path
-                String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
+                String s = line.split("=",2)[1].replaceAll("%CWD%", cwdStr).replaceAll("%HOME%", homeStr);
                 extPaths.add(Paths.get(s));
                 printstrm.println("ExtPath="+s);
             } else if (line.startsWith("DefPath=")) { // preprocessor name definition path
-                String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
+                String s = line.split("=",2)[1].replaceAll("%CWD%", cwdStr).replaceAll("%HOME%", homeStr);
                 defPaths.add(Paths.get(s));
                 printstrm.println("DefPath="+s);
             }
