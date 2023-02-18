@@ -129,7 +129,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                         printstrm.print("minimal: ");
                     }
                     File f = new File(cwd.toString(), line[1]);
-                    if (!f.exists()) {
+                    if (!f.exists() && libPath != null) {
                         f = new File(libPath.toString(), line[1] + ".dhulb");
                     }
                     if (imported.contains(f.toPath().toString())) {
@@ -159,7 +159,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                     }
                 } else if (line[0].equalsIgnoreCase("utilize")) {
                     File f = new File(cwd.toString(), line[1]);
-                    if (!f.exists()) {
+                    if (!f.exists() && libPath != null) {
                         f = new File(libPath.toString(), line[1]);
                     }
                     if (utilized.contains(f.toPath().toString())) {
