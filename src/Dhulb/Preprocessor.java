@@ -136,13 +136,16 @@ public class Preprocessor {// takes file stream and the directory path where the
                             throw new InvalidAttributeValueException("tried to access library when libPath is null");
                         }
                         for (Path libPath : libPaths) {
-                            f = new File(libPath.toString(), line[1].substring(1, line[1].length()-1));
+                            f = new File(libPath.toString(), line[1].substring(1, line[1].length()-1)+".dhulb");
                             if (f.exists()) {
                                 break;
                             }
                         }
+                        if (f == null) {
+                            throw new InvalidAttributeValueException("no libPath provided");
+                        }
                     } else {
-                        f = new File(cwd.toString(), line[1]);
+                        f = new File(cwd.toString(), line[1]+".dhulb");
                     }
                     if (imported.contains(f.toPath().toString())) {
                         printstrm.println("already imported");
@@ -208,14 +211,21 @@ public class Preprocessor {// takes file stream and the directory path where the
                             int argval = line.length > 2 ? (line[2].equalsIgnoreCase("docscan") ? 0 : (line[2].equalsIgnoreCase("nosymb") ? 3 : (line[2].equalsIgnoreCase("all") ? 1 : (line[2].equalsIgnoreCase("nodoc") ? 2 : 0)))) : 0;
                             String toScan = new String(Files.readAllBytes(f.toPath()));
                             for (String scanLine : toScan.split("\n")) {
-                                if (scanLine.matches("^[\\s]*[a-zA-Z0-9_]+:")) { // does checks on labels
-                                    if (scanLine.contains("/*dhulbDoc") && argval < 2) {
-                                        
+                                if (scanLine.matches("^[\\s]*[a-zA-Z0-9_]+:.*")) { // does checks on labels
+                                    if ((scanLine.contains("/*dhulbDoc") || scanLine.matches("^.*?#[\\s]?dhulbDoc.*$")) && argval < 2) {
+                                        String put;
+                                        if (scanLine.contains(";") && !scanLine.matches("^.*;(\\*/)?$")) {
+                                            put = scanLine.split(";", 2)[1];
+                                        } else {
+                                            put = scanLine.split(":")[2];
+                                        }
+                                        if (put.startsWith("function;")) {
+                                            put = put.substring(9);
+                                        }
+                                        output.println("imply " + (put.endsWith("*/") ? put.substring(0, put.length()-2) : put));
                                     } else if (argval > 0 && argval < 3) {
                                         output.println("imply u8 " + scanLine.trim().split(":", 2)[0] + ";");
                                     }
-                                } else if (scanLine.contains("/*dhulbDoc")) { // does checks on standalone dhulbdoc
-                                    //
                                 }
                             }
                             if (importComments) {
@@ -248,7 +258,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                         throw new Exception("Attempted to compare the value of a preprocessor variable that does not exist");
                     }
                     boolean cmpRes = parseIf(line);
-                    printstrm.println("elif: " + String.join("", Arrays.copyOfRange(line, 1, line.length)) + " (" + cmpRes + ")");
+                    printstrm.println("if: " + String.join("", Arrays.copyOfRange(line, 1, line.length)) + " (" + cmpRes + ")");
                     ifdefStack.add(new IfdefStackItem());
                     if (!cmpRes) {
                         printstrm.println("if check failed, skipping");
@@ -374,15 +384,15 @@ public class Preprocessor {// takes file stream and the directory path where the
             if (line.startsWith("#")) { // comments
                 continue;
             }
-            if (libPaths == null && line.startsWith("LibPath=")) { // dhulb library path
+            if (line.startsWith("LibPath=")) { // dhulb library path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
                 libPaths.add(Paths.get(s));
                 printstrm.println("LibPath="+s);
-            } else if (extPaths == null && line.startsWith("ExtPath=")) { // dhulb extension path
+            } else if (line.startsWith("ExtPath=")) { // dhulb extension path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
                 extPaths.add(Paths.get(s));
                 printstrm.println("ExtPath="+s);
-            } else if (defPaths == null && line.startsWith("DefPath=")) { // preprocessor name definition path
+            } else if (line.startsWith("DefPath=")) { // preprocessor name definition path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
                 defPaths.add(Paths.get(s));
                 printstrm.println("DefPath="+s);
@@ -446,15 +456,13 @@ public class Preprocessor {// takes file stream and the directory path where the
             parseConfig(Paths.get(System.getenv("HOME"), ".dhulb_conf"), cwd);
             parseConfig(cfgPath, cwd);
         }
-        if (defPaths != null) {
-            printstrm.println("reading def path:");
-            for (Path defPath : defPaths) {
-                for (String s : new String(Files.readAllBytes(defPath)).split("\n")) {
-                    if (s.length() > 0 && !(s.charAt(0) == '#')) {
-                        printstrm.println(s);
-                        boolean isa = s.contains("=");
-                        defined.put(isa ? s.split("=")[0] : s, isa ? Integer.parseInt(s.split("=")[1]) : 1);
-                    }
+        printstrm.println("reading def path:");
+        for (Path defPath : defPaths) {
+            for (String s : new String(Files.readAllBytes(defPath)).split("\n")) {
+                if (s.length() > 0 && !(s.charAt(0) == '#')) {
+                    printstrm.println(s);
+                    boolean isa = s.contains("=");
+                    defined.put(isa ? s.split("=")[0] : s, isa ? Integer.parseInt(s.split("=")[1]) : 1);
                 }
             }
         }

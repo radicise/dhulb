@@ -1,6 +1,8 @@
+Config File Not Found:/etc/.dhulb_conf
+Config File Not Found:/Users/tristans/.dhulb_conf
 Loading Config File:
-LibPath=/Users/tschartman/Documents/GitHub/dhulb/src/DLib
-ExtPath=/Users/tschartman/Documents/GitHub/dhulb/src/DExt
+LibPath=/Users/tristans/Documents/GitHub/dhulb/src/DLib
+ExtPath=/Users/tristans/Documents/GitHub/dhulb/src/DExt
 DefPath=PPD.dhulb_def
 reading def path:
 BITS16
@@ -11,40 +13,24 @@ NOKERNEL
 NOFLAGTEST
 FLAG1
 FLAG2
-[import, stdarrays]
-stdarrays
+[import, <stdarrays>]
+<stdarrays>
 [require, DhulbArray]
 DhulbArray
 [import, stdalloc]
 stdalloc
-[import, sysmem]
-sysmem
-[ifdef, KERNEL_LINUX_I386]
-ifdef: KERNEL_LINUX_I386 (true)
-[if, KERNEL_LINUX_I386, >=, 020400000]
-elif: 20400000>=020400000 (true)
-[if, OPERAND_BITS, ==, 32]
-elif: 32==32 (true)
-[if, CALL_BITS, !=, 32]
-elif: 32!=32 (false)
-if check failed, skipping
-[else]
-else check failed
-[else]
-else check failed
-[elifdef, NOKERNEL]
-elifdef: NOKERNEL (true)
-elifdef check failed (else component), skipping
-[import, sys]
-sys
+[import, <sys>]
+<sys>
 [ifdef, KERNEL_LINUX_I386]
 ifdef: KERNEL_LINUX_I386 (true)
 [if, OPERAND_BITS, >=, 32]
-elif: 32>=32 (true)
+if: 32>=32 (true)
 [else]
 else check failed
 [elifdef, NOKERNEL]
 elifdef: NOKERNEL (true)
 elifdef check failed (else component), skipping
-[utilize, test.s]
-test.s
+[utilize, fin.s, docscan]
+fin.s
+[utilize, <test.s>, all]
+<test.s>
