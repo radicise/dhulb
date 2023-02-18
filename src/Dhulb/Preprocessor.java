@@ -12,12 +12,14 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
 import java.nio.file.Paths;
 
+import javax.naming.directory.InvalidAttributeValueException;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
@@ -33,9 +35,9 @@ public class Preprocessor {// takes file stream and the directory path where the
     private static boolean importComments = false;
     private static boolean passComments = false;
     private static boolean minimalImport = false;
-    private static Path libPath = null;
-    private static Path extPath = null;
-    private static Path defPath = null;
+    private static ArrayList<Path> libPaths = new ArrayList<>();
+    private static ArrayList<Path> extPaths = new ArrayList<>();
+    private static ArrayList<Path> defPaths = new ArrayList<>();
     private static HashSet<String> imported = new HashSet<>();
     private static HashSet<String> utilized = new HashSet<>();
     private static HashSet<String> required = new HashSet<>();
@@ -128,9 +130,19 @@ public class Preprocessor {// takes file stream and the directory path where the
                     if (minimalImport) {
                         printstrm.print("minimal: ");
                     }
-                    File f = new File(cwd.toString(), line[1]);
-                    if (!f.exists() && libPath != null) {
-                        f = new File(libPath.toString(), line[1] + ".dhulb");
+                    File f = null;
+                    if (line[1].charAt(0) == '<') {
+                        if (libPaths == null) {
+                            throw new InvalidAttributeValueException("tried to access library when libPath is null");
+                        }
+                        for (Path libPath : libPaths) {
+                            f = new File(libPath.toString(), line[1].substring(1, line[1].length()-1));
+                            if (f.exists()) {
+                                break;
+                            }
+                        }
+                    } else {
+                        f = new File(cwd.toString(), line[1]);
                     }
                     if (imported.contains(f.toPath().toString())) {
                         printstrm.println("already imported");
@@ -157,10 +169,20 @@ public class Preprocessor {// takes file stream and the directory path where the
                             minimalImport = false;
                         }
                     }
-                } else if (line[0].equalsIgnoreCase("utilize")) {
-                    File f = new File(cwd.toString(), line[1]);
-                    if (!f.exists() && libPath != null) {
-                        f = new File(libPath.toString(), line[1]);
+                } else if (line[0].equalsIgnoreCase("utilize") || line[0].equalsIgnoreCase("utilise")) {
+                    File f = null;
+                    if (line[1].charAt(0) == '<') {
+                        if (libPaths == null) {
+                            throw new InvalidAttributeValueException("tried to access library when libPath is null");
+                        }
+                        for (Path libPath : libPaths) {
+                            f = new File(libPath.toString(), line[1].substring(1, line[1].length()-1));
+                            if (f.exists()) {
+                                break;
+                            }
+                        }
+                    } else {
+                        f = new File(cwd.toString(), line[1]);
                     }
                     if (utilized.contains(f.toPath().toString())) {
                         printstrm.println("already utilized");
@@ -275,6 +297,8 @@ public class Preprocessor {// takes file stream and the directory path where the
                     info(line[1]);
                 } else if (line[0].equalsIgnoreCase("define")) {
                     defined.put(line[1], line.length > 2 ? Integer.parseInt(line[2]) : 1);
+                } else {
+                    throw new Exception("invalid directive name: " + line[0]);
                 }
                 if (startIfdefTypeSkip) {
                     int cdepth = 0;
@@ -334,6 +358,9 @@ public class Preprocessor {// takes file stream and the directory path where the
         }
     }
     private static void parseConfig (Path cfgFile, Path cwd) throws Exception {
+        if (cfgFile == null) {
+            return;
+        }
     	File cfgF = cfgFile.toFile();
         String cwdStr = cwd.toString();
         if (!cfgF.exists()) {
@@ -347,28 +374,38 @@ public class Preprocessor {// takes file stream and the directory path where the
             if (line.startsWith("#")) { // comments
                 continue;
             }
-            if (libPath == null && line.startsWith("LibPath=")) { // dhulb library path
+            if (libPaths == null && line.startsWith("LibPath=")) { // dhulb library path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
-                libPath = Paths.get(s);
+                libPaths.add(Paths.get(s));
                 printstrm.println("LibPath="+s);
-            } else if (extPath == null && line.startsWith("ExtPath=")) { // dhulb extension path
+            } else if (extPaths == null && line.startsWith("ExtPath=")) { // dhulb extension path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
-                extPath = Paths.get(s);
+                extPaths.add(Paths.get(s));
                 printstrm.println("ExtPath="+s);
-            } else if (defPath == null && line.startsWith("DefPath=")) { // preprocessor name definition path
+            } else if (defPaths == null && line.startsWith("DefPath=")) { // preprocessor name definition path
                 String s = line.split("=",2)[1].replaceAll("%CWD", cwdStr);
-                defPath = Paths.get(s);
+                defPaths.add(Paths.get(s));
                 printstrm.println("DefPath="+s);
             }
         }
     }
     public static void main (String[] args) throws Exception {
         if (args.length > 0 && args[0].equals("--help")) {
-            System.out.println("Usage:\njava Dhulb/Preprocessor debug-dest|- (no debug) working-path|- (use the current working directory) [options]\n -comment-imports -- marks where imported content begins, ends, and the source file of the imported content\n -pass-comments --passes comments through the preprocessor instead of stripping them");
+            System.out.println(
+                "Usage:\n"+
+                "java Dhulb/Preprocessor debug-dest|- (no debug) working-path|- (use the current working directory) [options]\n"+
+                " -comment-imports -- marks where imported content begins, ends, and the source file of the imported content\n"+
+                " -pass-comments -- passes comments through the preprocessor instead of stripping them"+
+                " -no-cfg-file -- causes no config files to be read"+
+                " -cwd= -CWD= -- sets the working directory of the preprocessor"+
+                " -conf= -CONF= -- specifies a config file to use (used in combination with the /etc and $HOME files)"+
+                " -ep= -EP= -- sets the extension path"
+            );
             return;
         }
         Path cwd = Paths.get(System.getenv("PWD"));
-        Path cfgPath = Paths.get(System.getenv("HOME"), ".dhulb_conf");
+        Path cfgPath = null;
+        boolean noCfgFiles = false;
         if (args.length > 0 && !args[0].equals("-")) {
             printstrm = new PrintStream(new File(cwd.toString(), args[0]));
         } else {
@@ -380,46 +417,56 @@ public class Preprocessor {// takes file stream and the directory path where the
                 importComments = true;
             } else if (arg.equalsIgnoreCase("-pass-comments")) {
                 passComments = true;
+            } else if (arg.equalsIgnoreCase("-no-cfg-file")) {
+                noCfgFiles = true;
             } else if (arg.matches("-(cwd|CWD)=")) {
                 cwd = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(conf|CONF)=.*")) {
                 cfgPath = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(lp|LP)=")) {
-                libPath = Paths.get(arg.split("=",2)[1]);
+                libPaths.add(Paths.get(arg.split("=",2)[1]));
             } else if (arg.matches("-(ep|EP)=")) {
-                extPath = Paths.get(arg.split("=",2)[1]);
+                extPaths.add(Paths.get(arg.split("=",2)[1]));
             } else if (arg.matches("-(dp|DP)=")) {
-                defPath = Paths.get(arg.split("=",2)[1]);
+                defPaths.add(Paths.get(arg.split("=",2)[1]));
             } else {
                 boolean isa = arg.contains("=");
-                    defined.put(isa ? arg.split("=")[0] : arg, isa ? Integer.parseInt(arg.split("=")[1]) : 1);
+                defined.put(isa ? arg.split("=")[0] : arg, isa ? Integer.parseInt(arg.split("=")[1]) : 1);
             }
         }
         PrintStream output = System.out;
         InputStreamReader inreader = new InputStreamReader(System.in, StandardCharsets.UTF_8);
         BufferedReader reader = new BufferedReader(inreader);
-        parseConfig(cfgPath, cwd);
-        if (defPath != null) {
+        if (!noCfgFiles) {
+            parseConfig(Paths.get("/etc/.dhulb_conf"), cwd);
+            parseConfig(Paths.get(System.getenv("HOME"), ".dhulb_conf"), cwd);
+            parseConfig(cfgPath, cwd);
+        }
+        if (defPaths != null) {
             printstrm.println("reading def path:");
-            for (String s : new String(Files.readAllBytes(defPath)).split("\n")) {
-                if (s.length() > 0 && !(s.charAt(0) == '#')) {
-                    printstrm.println(s);
-                    boolean isa = s.contains("=");
-                    defined.put(isa ? s.split("=")[0] : s, isa ? Integer.parseInt(s.split("=")[1]) : 1);
+            for (Path defPath : defPaths) {
+                for (String s : new String(Files.readAllBytes(defPath)).split("\n")) {
+                    if (s.length() > 0 && !(s.charAt(0) == '#')) {
+                        printstrm.println(s);
+                        boolean isa = s.contains("=");
+                        defined.put(isa ? s.split("=")[0] : s, isa ? Integer.parseInt(s.split("=")[1]) : 1);
+                    }
                 }
             }
         }
         RecoverableOutputStream rOut = new RecoverableOutputStream();
         preprocess(reader, cwd, new PrintStream(rOut));
         for (String req : required) {
-            @SuppressWarnings("unchecked")
-            Class<? extends DhulbExtension> cls = (Class<? extends DhulbExtension>) Class.forName(extPath.resolve(req).toString().replace(cwd.toString(), "").substring(1).replaceAll("/", "."));
-            Method m = cls.getDeclaredMethod("dothing", new Class[]{InputStream.class, OutputStream.class});
-            InputStream send = new ByteArrayInputStream(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
-            RecoverableOutputStream rec = new RecoverableOutputStream();
-            m.invoke(null, new Object[]{send, rec});
-            rOut.close();
-            rOut = rec;
+            for (Path extPath : extPaths) {
+                @SuppressWarnings("unchecked")
+                Class<? extends DhulbExtension> cls = (Class<? extends DhulbExtension>) Class.forName(extPath.resolve(req).toString().replace(cwd.toString(), "").substring(1).replaceAll("/", "."));
+                Method m = cls.getDeclaredMethod("dothing", new Class[]{InputStream.class, OutputStream.class});
+                InputStream send = new ByteArrayInputStream(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
+                RecoverableOutputStream rec = new RecoverableOutputStream();
+                m.invoke(null, new Object[]{send, rec});
+                rOut.close();
+                rOut = rec;
+            }
         }
         output.println("/*@Dhulb\n\n@utilize\n" + String.join("\n", utilized) + "\n*/");
         output.write(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
