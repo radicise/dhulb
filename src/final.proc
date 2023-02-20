@@ -206,4 +206,9 @@ imply s8 test(u8) call16;
 u32 program ( u32 _, addr*addr*char _ ) {
     /*String str = new String();*/
     Array<u32> arr = new Array<u32>(10);
+    """
+    #import "something"
+    \\"
+    \"""
+    """;
 }

@@ -72,6 +72,53 @@ public class Preprocessor {// takes file stream and the directory path where the
         boolean test = true;
         while (cbyte != -1) {
             boolean startIfdefTypeSkip = false;
+            if (cbyte == '"') {
+                output.write(cbyte);
+                int nb1 = reader.read();
+                if (nb1 == '"') { // check if nb1 is also a double quote
+                    output.write(nb1);
+                    int nb2 = reader.read();
+                    if (nb2 == -1) { // programmed defensively against EOF
+                        break;
+                    }
+                    if (nb2 != '"') { // if not a triple quote and instead an empty string, make nb2 the cbyte and continue normally
+                        cbyte = nb2;
+                        continue;
+                    }
+                    output.write(nb2); // if this point is reached, it is a triple quoted string
+                    int qcount = 0; // counts number of consecutive quotes
+                    boolean backslashed = false; // used to check against escaped quotes
+                    while (qcount < 3) { // qcount reaches 3 when a triple quote has been processed
+                        nb2 = reader.read();
+                        output.write(nb2);
+                        if (nb2 == '"') {
+                            if (backslashed) { // escaped quote
+                                backslashed = false;
+                                qcount = 0;
+                                continue;
+                            }
+                            qcount ++;
+                            continue;
+                        }
+                        qcount = 0; // not a quote, reset qcount
+                        if (nb2 == '\\') {
+                            backslashed = !backslashed; // in case backslash was used to escape a backslash
+                        } else { // backslashed has to be reset
+                            backslashed = false;
+                        }
+                    }
+                    cbyte = reader.read();
+                } else { // not a triple quoted string
+                    cbyte = nb1;
+                    while (cbyte != '"') {
+                        output.write(cbyte);
+                        cbyte = reader.read();
+                    }
+                    output.write(cbyte);
+                    cbyte = reader.read();
+                }
+                continue;
+            }
             if (cbyte == '/') {
                 int tbyte = reader.read();
                 // if (tbyte == '/' || tbyte == '*') {

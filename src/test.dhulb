@@ -25,4 +25,9 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 u32 program ( u32 _, addr*addr*char _ ) {
     /*String str = new String();*/
     u32[] arr = new u32[](10);
+    """
+    #import "something"
+    \\"
+    \"""
+    """;
 }

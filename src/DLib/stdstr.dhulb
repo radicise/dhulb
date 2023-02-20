@@ -1,8 +1,9 @@
-#require "stdclasses"
+/*#require "stdclasses"*/
 #import "stdalloc.dhulb"
 
 class String {
-    u8[] characters;
+    /*u8[] characters;*/
+    a32*u8 characters;
     u32 length;
     u32 capacity;
     String constructor (addr*u8 str) {
@@ -24,8 +25,12 @@ class String {
 	/*NOTE: The %di might have overflowed during the scan, leading to an unreliable value in `result'*/
         structaddr.length = result;
         structaddr.capacity = structaddr.length;
-        structaddr.characters = new u8[structaddr.length];
-        #error "not implemented"
+        structaddr.characters = malloc(structaddr.capacity);
+        /*structaddr.characters = new u8[structaddr.length];*/
+        /*#error "not implemented"*/
         return structaddr;
+    }
+    u8 destroy() {
+        free(this.characters);
     }
 }
