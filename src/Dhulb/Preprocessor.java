@@ -214,14 +214,16 @@ public class Preprocessor {// takes file stream and the directory path where the
                                 if (scanLine.matches("^[\\s]*[a-zA-Z0-9_]+:.*")) { // does checks on labels
                                     if ((scanLine.contains("/*dhulbDoc") || scanLine.matches("^.*?#[\\s]?dhulbDoc.*$")) && argval < 2) {
                                         String put;
-                                        if (scanLine.contains(";") && !scanLine.matches("^.*;(\\*/)?$")) {
+                                        if (scanLine.contains(";") && !scanLine.matches("^[^;]+;(\\*/)?$")) {
                                             put = scanLine.split(";", 2)[1];
                                         } else {
                                             put = scanLine.split(":")[2];
                                         }
-                                        if (put.startsWith("function;")) {
-                                            put = put.substring(9);
-                                        }
+                                        // if (put.startsWith("function;")) {
+                                        //     put = put.substring(9);
+                                        // } else if (put.startsWith("globalvar;")) {
+                                        //     put = put.substring(10);
+                                        // }
                                         put = (put.endsWith("*/") ? put.substring(0, put.length()-2) : put);
                                         output.println("imply " + (put.endsWith(";") ? put : (put + ";")));
                                     } else if (argval > 0 && argval < 3) {

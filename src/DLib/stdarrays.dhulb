@@ -1,5 +1,5 @@
 #require "DhulbArray"
-#import "stdalloc"
+#import "stdalloc.dhulb"
 
 /**
  * @dhelpdoc

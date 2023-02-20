@@ -1,5 +1,5 @@
 #require "stdclasses"
-#import "stdalloc"
+#import "stdalloc.dhulb"
 
 class String {
     u8[] characters;

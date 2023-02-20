@@ -13,14 +13,14 @@ NOKERNEL
 NOFLAGTEST
 FLAG1
 FLAG2
-[import, <stdarrays>]
-<stdarrays>
+[import, <stdarrays.dhulb>]
+<stdarrays.dhulb>
 [require, DhulbArray]
 DhulbArray
-[import, stdalloc]
-stdalloc
-[import, <sys>]
-<sys>
+[import, stdalloc.dhulb]
+stdalloc.dhulb
+[import, <sys.dhulb>]
+<sys.dhulb>
 [ifdef, KERNEL_LINUX_I386]
 ifdef: KERNEL_LINUX_I386 (true)
 [if, OPERAND_BITS, >=, 32]

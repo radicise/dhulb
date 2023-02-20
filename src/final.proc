@@ -16,9 +16,9 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 */
 
 
-imply a64 malloc ( u64 count );
-imply ! free ( a32 );
-imply u16 sizeof ( struct S );
+imply a64 malloc ( u64 );
+imply u8 free ( a32 );
+imply u16 sizeof ( a16 );
 
 /**
  * @dhelpdoc
@@ -156,7 +156,7 @@ class List<T> {
     }
 }
 /*#import "flagtest"*/
-/*#import <sysmem>*/
+/*#import <sysmem.dhulb>*/
 /*
  * sys.dhulb
  * Created on 2023-01-24
@@ -190,11 +190,11 @@ imply u32 exit(u32) call32;
 imply s32 x(u32, a32*a32*u8) call32;
 
 
-imply  s16 set_video_mode(u8)
-imply  u8 cursor_pos_x
-imply  u8 cursor_pos_y
-imply  u8 print_format
-imply  u16 print(a16*u8, u16)
+imply s16 set_video_mode(u8) call16;
+imply u8 cursor_pos_x;
+imply u8 cursor_pos_y;
+imply u8 print_format;
+imply u16 print(a16*u8, u16) call16;
 
 
 imply s8 test(u8) call16;
