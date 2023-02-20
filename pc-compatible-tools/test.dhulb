@@ -1,8 +1,10 @@
-imply s16 set_video_mode(u8) call16;
+/*imply s16 set_video_mode(u8) call16;
 imply u8 cursor_pos_x;
 imply u8 cursor_pos_y;
 imply u8 print_format;
 imply u16 print(a16*u8, u16) call16;
+*/
+#utilize io.s all
 int entry() {
 	if (set_video_mode(3 as u8)) {
 		return 1;
