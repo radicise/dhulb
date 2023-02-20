@@ -136,7 +136,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                             throw new InvalidAttributeValueException("tried to access library when libPath is null");
                         }
                         for (Path libPath : libPaths) {
-                            f = new File(libPath.toString(), line[1].substring(1, line[1].length()-1)+".dhulb");
+                            f = new File(libPath.toString(), line[1].substring(1, line[1].length()-1));
                             if (f.exists()) {
                                 break;
                             }
@@ -145,7 +145,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                             throw new InvalidAttributeValueException("no libPath provided");
                         }
                     } else {
-                        f = new File(cwd.toString(), line[1]+".dhulb");
+                        f = new File(cwd.toString(), line[1]);
                     }
                     if (imported.contains(f.toPath().toString())) {
                         printstrm.println("already imported");
@@ -222,7 +222,8 @@ public class Preprocessor {// takes file stream and the directory path where the
                                         if (put.startsWith("function;")) {
                                             put = put.substring(9);
                                         }
-                                        output.println("imply " + (put.endsWith("*/") ? put.substring(0, put.length()-2) : put));
+                                        put = (put.endsWith("*/") ? put.substring(0, put.length()-2) : put);
+                                        output.println("imply " + (put.endsWith(";") ? put : (put + ";")));
                                     } else if (argval > 0 && argval < 3) {
                                         output.println("imply u8 " + scanLine.trim().split(":", 2)[0] + ";");
                                     }

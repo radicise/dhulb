@@ -8,12 +8,14 @@ COMMAND USED TO TEST THIS IS CURRENTLY:
 cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 */
 
-#import <stdarrays>
+#import <stdarrays.dhulb>
 /*#import "flagtest"*/
-/*#import <sysmem>*/
-#import <sys>
+/*#import <sysmem.dhulb>*/
+#import <sys.dhulb>
 
 #utilize "fin.s" docscan
+
+#utilize "../pc-compatible-tools/io.s" docscan
 
 #utilize <test.s> all
 

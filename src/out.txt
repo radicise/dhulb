@@ -32,5 +32,7 @@ elifdef: NOKERNEL (true)
 elifdef check failed (else component), skipping
 [utilize, fin.s, docscan]
 fin.s
+[utilize, ../pc-compatible-tools/io.s, docscan]
+../pc-compatible-tools/io.s
 [utilize, <test.s>, all]
 <test.s>
