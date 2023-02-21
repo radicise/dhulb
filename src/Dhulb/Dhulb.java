@@ -21,9 +21,9 @@ import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 class Dhulb {
 	public static void main(String[] argv) throws IOException, InternalCompilerException {
-		if (argv[0].equals("--help")) {
-				System.out.println("Invocation:\n"
-						+ "dhulbc 16|32|64 -[t][N][B]\n"
+		if ((argv.length == 0) || argv[0].equals("--help")) {
+				System.out.print("Invocation:\n"
+						+ "dhulbc 16|32|64 -[t][N][B][G][T]\n"
 						+ "\n"
 						+ "\n"
 						+ "Argument description:\n"
@@ -33,7 +33,10 @@ class Dhulb {
 						+ "\n"
 						+ "Argument 1: Each optional character used represents a flag being set. Usage is as follows:\n"
 						+ "\tt\tPrints the compiler's stack trace upon compilation errors\n"
-						+ "\tN\tEnables usage of platform-dependent type names");
+						+ "\tN\tEnables usage of platform-dependent type names\n"
+						+ "\tB\tDisables error viewing\n"
+						+ "\tG\tAutomatically makes declared global variables and functions global\n"
+						+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n");
 			return;
 		}
 		Compiler.mai(argv);//TODO prevent declaration of non-pointed structurally-typed variables
@@ -62,8 +65,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static long numericVersion = /*00_00_0*/2_00;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
-	public static String stringVersion = "0.0.2.0";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
+	public static long numericVersion = /*00_00_0*/2_01;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
+	public static String stringVersion = "0.0.2.1";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();

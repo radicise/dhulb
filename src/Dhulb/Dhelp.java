@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 
 public class Dhelp {
     public static void main(String[] args) {
@@ -17,17 +19,17 @@ public class Dhelp {
             return;
         }
         if (args[0].equalsIgnoreCase("--version")) {
-            System.out.println("Dhelp Version Java " + version + "\nLast Modified: Fri, Feb 10 2023");
+            System.out.println("Dhelp Version Java " + version + "\nLast Modified: Tue, Feb 21 2023");
             return;
         }
         if (args[0].equalsIgnoreCase("--info")) {
             System.out.println("https://github.com/radicise/Dhulb \nplease go to the readme and find the section detailing dhelpdoc");
             return;
         }
-        Path pwd = Path.of(System.getenv("PWD"));
+        Path pwd = Paths.get(System.getenv("PWD"));
         String content;
         try {
-            content = Files.readString(pwd.resolve(args[0]));
+            content = new String(Files.readAllBytes(pwd.resolve(args[0])), StandardCharsets.UTF_8);
         } catch (IOException e) {
             System.out.println("failed to read file");
             return;

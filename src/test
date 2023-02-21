@@ -1,3 +1,0 @@
-#!/bin/sh
-
-cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments -conf="z.dhulb_conf" $@ > final.proc
