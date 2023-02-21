@@ -20,26 +20,34 @@ import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 class Dhulb {
+	public static final String invocation = "Invocation:\n"
+			+ "dhulbc 16|32|64 -[t][N][B][G][T]\n"
+			+ "\n"
+			+ "\n"
+			+ "Argument description:\n"
+			+ "\n"
+			+ "\n"
+			+ "Argument 0: The instruction set used; \"16\" utilises that of the 8086 and generates code for it, \"32\" does the same for that of 80386 and and generates code for it, and \"64\" does the same for AMD64\n"
+			+ "\n"
+			+ "Argument 1: Each optional character used represents a flag being set. Usage is as follows:\n"
+			+ "\tt\tPrints the compiler's stack trace upon compilation errors\n"
+			+ "\tN\tEnables usage of platform-dependent type names\n"
+			+ "\tB\tDisables error viewing\n"
+			+ "\tG\tAutomatically makes declared global variables and functions global\n"
+			+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n";
 	public static void main(String[] argv) throws IOException, InternalCompilerException {
-		if ((argv.length == 0) || argv[0].equals("--help")) {
-				System.out.print("Invocation:\n"
-						+ "dhulbc 16|32|64 -[t][N][B][G][T]\n"
-						+ "\n"
-						+ "\n"
-						+ "Argument description:\n"
-						+ "\n"
-						+ "\n"
-						+ "Argument 0: The instruction set used; \"16\" utilises that of the 8086 and generates code for it, \"32\" does the same for that of 80386 and and generates code for it, and \"64\" does the same for AMD64\n"
-						+ "\n"
-						+ "Argument 1: Each optional character used represents a flag being set. Usage is as follows:\n"
-						+ "\tt\tPrints the compiler's stack trace upon compilation errors\n"
-						+ "\tN\tEnables usage of platform-dependent type names\n"
-						+ "\tB\tDisables error viewing\n"
-						+ "\tG\tAutomatically makes declared global variables and functions global\n"
-						+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n");
-			return;
+		if (argv.length < 2) {
+			System.err.print(invocation);
+			System.exit(5);
 		}
-		Compiler.mai(argv);//TODO prevent declaration of non-pointed structurally-typed variables
+		else if (argv[0].equals("--help")) {
+				System.out.print(invocation);
+				System.exit(0);
+		}
+		else {
+			Compiler.mai(argv);//TODO prevent declaration of non-pointed structurally-typed variables
+			System.exit(0);
+		}
 	}
 }
 class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those)
@@ -121,20 +129,20 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					int pos = Util.viewStart + 1;
 					int where = 0;
 					while (pos != Util.viewPos) {
-						sb.appendCodePoint(Util.view[pos]);
-						pos++;
 						if (pos == Util.viewLen) {
 							pos = 0;
 						}
+						sb.appendCodePoint(Util.view[pos]);
+						pos++;
 						where++;
 					}
 					try {
 						while (pos < Util.viewEnd) {
-							sb.appendCodePoint(Util.read());
-							pos++;
 							if (pos == Util.viewLen) {
 								pos = 0;
 							}
+							sb.appendCodePoint(Util.read());
+							pos++;
 						}
 						noViewErrors = true;
 						for (pos = 0; pos < Util.viewLen; pos++) {
@@ -200,7 +208,14 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			Compiler.rwdata.println(".data");
 			Compiler.text.println(".text");
 		}
-		int madec = Integer.parseInt(argv[0]);
+		int madec = 0;
+		try {
+			madec = Integer.parseInt(argv[0]);
+		}
+		catch (NumberFormatException E) {
+			System.err.print(Dhulb.invocation);
+			System.exit(8);
+		}
 		if (madec == 16) {
 			Compiler.text.println(".code16");
 			mach = 0;
@@ -229,7 +244,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			defAdr = Type.a64;
 		}
 		else {
-			throw new InternalCompilerException("Unidentifiable target");
+			System.err.print(Dhulb.invocation);
+			System.exit(9);
 		}
 		try {
 			while (true) {
