@@ -155,6 +155,18 @@ public class Preprocessor {// takes file stream and the directory path where the
                 }
                 continue;
             }
+            if (cbyte == '$') {
+                StringBuilder sb = new StringBuilder();
+                while ((cbyte = reader.read()) != -1) {
+                    if (cbyte == '$') {
+                        break;
+                    }
+                    sb.append((char)cbyte);
+                }
+                output.write(Integer.toString(defined.get(sb.toString())).getBytes());
+                cbyte = reader.read();
+                continue;
+            }
             if (test && cbyte == '#') {
                 String[] manip = reader.readLine().split("\"");
                 for (int i = 1; i < manip.length; i += 2) {
