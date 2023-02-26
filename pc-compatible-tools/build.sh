@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 cp boot.s boot-inter.s
-cat io.s >> boot-inter.s
+cat ../src/DLib/pc/io.s >> boot-inter.s
 dhulbpp - - < test.dhulb > boot-precursor-pp.dhulb
 dhulbc 16 -tNGT < boot-precursor-pp.dhulb >> boot-inter.s
 as -arch i386 -m16 -o boot.o boot-inter.s

@@ -26,7 +26,7 @@ print_format:/*dhulbDoc-v200:globalvar;u8 print_format;*/
 .globl print_format
 	.byte 0x07
 
-print:/*dhulbDoc-v200:u16 print(a16*u8, u16) call16;*/
+print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 .globl print
 	pushw %bp
 	movw %sp,%bp
@@ -67,4 +67,10 @@ print:/*dhulbDoc-v200:u16 print(a16*u8, u16) call16;*/
 	popw %si
 	movw %bp,%sp
 	popw %bp
+	retw
+
+readScancode:/*dhulbDoc-v201:function;u16 readScancode() call16;*/
+.globl readScancode
+	xorw %ax,%ax
+	int $0x16
 	retw

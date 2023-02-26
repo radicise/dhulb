@@ -1,8 +1,13 @@
-#utilize io.s docscan
+#utilize <pc/io.s> docscan
 int entry() {
 	if (set_video_mode(3 as u8)) {
 		return 1;
 	}
 	print("HELLO, WORLD, FROM THE DHULB PROGRAMMING LANGUAGE, RUNNING WITH NO UNDERLYING SYSTEM", 0);
+	addr*u8 n = "\x00";
+	:printer;
+	readScancode() as u8 -> n;
+	print(n, 1);
+	jump printer;
 	return 0;
 }
