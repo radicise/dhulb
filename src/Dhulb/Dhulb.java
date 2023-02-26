@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -34,15 +35,31 @@ class Dhulb {
 			+ "\tN\tEnables usage of platform-dependent type names\n"
 			+ "\tB\tDisables error viewing\n"
 			+ "\tG\tAutomatically makes declared global variables and functions global\n"
-			+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n";
+			+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n"
+			+ "\n"
+			+ "\n"
+			+ "\n"
+			+ "dhulbc --help|-help|help\n"
+			+ "\n"
+			+ "\n"
+			+ "\n"
+			+ "dhulbc --version|-version|version\n";//TODO use the system line separator
 	public static void main(String[] argv) throws IOException, InternalCompilerException {
-		if (argv.length < 2) {
+		if (argv.length < 1) {
 			System.err.print(invocation);
 			System.exit(5);
 		}
-		else if (argv[0].equals("--help")) {
-				System.out.print(invocation);
-				System.exit(0);
+		else if (argv[0].equals("--help") || argv[0].equals("-help") || argv[0].equals("help")) {
+			System.out.print(invocation);
+			System.exit(0);
+		}	
+		else if (argv[0].equals("--version") || argv[0].equals("-version") || argv[0].equals("version")) {
+			System.out.println("dhulb compiler reference implementation (dhulbc Dhulb), version " + Compiler.stringVersion + " (version ID " + Long.toString(Compiler.numericVersion) + " (0x" + Long.toHexString(Compiler.numericVersion) + "))");
+			System.exit(0);
+		}
+		else if (argv.length < 2) {
+			System.err.print(invocation);
+			System.exit(10);
 		}
 		else {
 			Compiler.mai(argv);//TODO prevent declaration of non-pointed structurally-typed variables
@@ -73,8 +90,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static long numericVersion = /*00_00_0*/2_01;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
-	public static String stringVersion = "0.0.2.1";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
+	public static final long numericVersion = /*00_00_0*/2_01;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
+	public static final String stringVersion = "0.0.2.1";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
@@ -83,7 +100,9 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static boolean noViewErrors = false;
 	public static boolean autoGlobals = false;
 	public static boolean oneText = false;
+	public static long buildTime = 0;
 	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
+		buildTime = System.currentTimeMillis() / 1000L;
 		try {//TODO implement bulk memory movement syntax
 			try {//TODO create a way for an address to be gotten from a named global function
 				nowhere = new PrintStream(new NullOutputStream());
@@ -259,9 +278,9 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		}
 	}
 	static void getCompilable(ArrayList<Compilable> list, boolean inFunc, Stacked fn) throws CompilationException, InternalCompilerException, IOException {
-		if (inFunc && (fn == null)) {
-			throw new InternalCompilerException("Function not provided");
-		}
+//		if (inFunc && (fn == null)) {
+//			throw new InternalCompilerException("Function not provided");
+//		}
 		String s;
 		FullType typ;
 		int i;
@@ -269,6 +288,24 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		i = Util.read();
 		if (i == '}') {
 			throw new BlockEndException("Unexpected end-of-block");//Unexpected by this call, the message only applies to the compilation as a whole if this is not within a block
+		}
+		else if (i == ':') {
+			if (!(inFunc)) {
+				throw new NotImplementedException();//TODO implement `goto' statements and labels outside of functions
+			}
+			Util.skipWhite();
+			Label l;
+			s = Util.phrase(0x3d);
+			if (fn.assoc().labels.containsKey(s)) {
+				throw new CompilationException("Duplicate label name in the same function: " + s);
+			}
+			fn.label(s, l = new Label(fn));
+			list.add(l);
+			Util.skipWhite();
+			if ((i = Util.read()) != ';') {
+				throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
+			}
+			return;
 		}
 		else if (i == '{') {
 			if (!(inFunc)) {
@@ -459,7 +496,23 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 							list.add(IfThen.from(fn));
 						}
 						else {
-							throw new NotImplementedException();//TODO decide how variables declared inside of if statements which are outside of functions will work
+							throw new NotImplementedException();//TODO decide if `if' statements are allowed outside of functions; if so, decide how variables declared inside of `if' statements which are outside of functions will work
+						}
+						return;
+					case ("goto"):
+					case ("jump"):
+						if (inFunc) {
+							Util.skipWhite();
+							s = Util.phrase(0x3d);
+							list.add(new Jump(s, fn));
+							Util.skipWhite();
+							i = Util.read();
+							if (i != ';') {
+								throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
+							}
+						}
+						else {
+							throw new NotImplementedException();//TODO implement `goto' statements and labels outside of functions
 						}
 						return;
 					default:
@@ -555,7 +608,7 @@ class Util {
 	static long sen = 0;
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump"};
 	static ArrayList<String> accesk = new ArrayList<String>();
 	static String[] accese = new String[]{};
 	static ArrayList<String> boolitk = new ArrayList<String>();
@@ -579,7 +632,9 @@ class Util {
 	public static int viewStart = 0;//first valid
 	public static int viewEnd = 1;//first invalid
 	public static int viewPos = 1;
+	public static String buildNam;
 	static {
+		buildNam = Long.toHexString(ubid) + "__" + Long.toHexString(Compiler.buildTime);
 		for (int c : brace) {
 			brack.add(c);
 		}
@@ -638,7 +693,7 @@ class Util {
 //		}
 //	}
 	static String reserve() {
-		return "___dhulbres__" + Long.toHexString(ubid) + "__" + Long.toString(sen++);
+		return "___dhulbres__" + buildNam + "__" + Long.toString(sen++);
 	}
 	static void unread(int[] ii) throws InternalCompilerException, IOException {//un-reading of phrases up to only 8 characters is supported
 		for (int t = ii.length - 1; t >= 0; t--) {
@@ -839,8 +894,6 @@ class Util {
 			viewPos--;
 		}
 		if (view[viewPos] != f) {
-			System.out.println((char) view[viewPos]);
-			System.out.println((char) f);
 			throw new InternalCompilerException("Pushback-based un-reading inconsistency");
 		}
 	}
@@ -1208,13 +1261,13 @@ class Condition {
 		}
 	}
 }
-abstract class Conditional implements Doable {//if(X), else(X), else, while(X), for(X;X;X), dowhile(X)
+abstract class Conditional implements Doable {//if(X){}, else(X){}, else{}, while(X){}, for(X;X;X){}, dowhile(X){}, loop{}
 	static int[] els = new int[] {'e', 'l', 's', 'e'};
 	final Stacked parent;
 	protected Conditional(Stacked p) {
 		parent = p;
 	}
-}//TODO allow do{X}while(X) and do while(X) {X}
+}//TODO allow both of the notations do{X}while(X) and dowhile(X){X}
 class IfThen extends Conditional {
 	final ArrayList<Condition> ifs;//must have the same size as `poss' and `thens'
 	final ArrayList<Boolean> poss;//must have the same size as `ifs' and `thens'
@@ -1608,8 +1661,12 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 	private long minOff = 0;//lowest value of the offset from the base pointer without processing blocks
 	public final int abiSize;
 	long spos = 0;
+	transient long cOff;//current offset from the base pointer, taking blocks into consideration
+	Map<String, Label> labels;
 	private Function() {
 		abiSize = Compiler.CALL_SIZE_BITS;
+		cOff = 0;
+		labels = new HashMap<String, Label>();
 	}
 	Function(FullType rett, FullType[] ar, Doable[] doz, String nam) {
 		retType = rett;
@@ -1617,6 +1674,8 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 		does = doz;
 		name = nam;
 		abiSize = Compiler.CALL_SIZE_BITS;
+		cOff = 0;
+		labels = new HashMap<String, Label>();
 	}
 	Function(FullType rett, FullType[] ar, Doable[] doz, String nam, int siz) throws CompilationException {
 		retType = rett;
@@ -1627,6 +1686,8 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 			throw new CompilationException("Invalid address size");
 		}
 		abiSize = siz;
+		cOff = 0;
+		labels = new HashMap<String, Label>();
 	}
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -1659,32 +1720,46 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 			Compiler.text.print(".globl ");
 			Compiler.text.println(name);
 		}
-		switch (abiSize) {
-			case (16):
-				Compiler.text.println("pushw %bp");
-				Compiler.text.println("movw %sp,%bp");
-				if (minOff > 0) {
-					throw new InternalCompilerException("This exceptional condition should not occur!");
-				}
-				else if (minOff < 0) {
-					Compiler.text.println("subw $" + Util.signedRestrict(-minOff, 16) + ",%sp");
-				}
-				break;
-			case (32):
-				Compiler.text.println("pushl %ebp");
-				Compiler.text.println("movl %esp,%ebp");
-				if (minOff > 0) {
-					throw new InternalCompilerException("This exceptional condition should not occur!");
-				}
-				else if (minOff < 0) {
-					Compiler.text.println("subl $" + Util.signedRestrict(-minOff, 33) + ",%esp");
-				}
-				break;
-			case (64):
-				throw new NotImplementedException();
-			default:
-				throw new InternalCompilerException("Unidentifiable target");
+		if (minOff == (-1)) {
+			switch (abiSize) {
+				case (16):
+					Compiler.text.println("pushw %bp");
+					Compiler.text.println("movw %sp,%bp");
+					Compiler.text.println("decw %sp");
+					break;
+				case (32):
+					Compiler.text.println("pushl %ebp");
+					Compiler.text.println("movl %esp,%ebp");
+					Compiler.text.println("decl %esp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
 		}
+		else if (minOff < 0) {
+			switch (abiSize) {
+				case (16):
+					Compiler.text.println("pushw %bp");
+					Compiler.text.println("movw %sp,%bp");
+					Compiler.text.println("subw $" + Util.signedRestrict(-minOff, 16) + ",%sp");
+					break;
+				case (32):
+					Compiler.text.println("pushl %ebp");
+					Compiler.text.println("movl %esp,%ebp");
+					Compiler.text.println("subl $" + Util.signedRestrict(-minOff, 33) + ",%esp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+		else if (minOff != 0) {
+			throw new InternalCompilerException("This exceptional condition should not occur!");
+		}
+		update(minOff);
 		for (Doable d : does) {
 			d.compile();
 		}//don't implicitly return at the end of the function body; the programmer needs to make sure that nothing reaches the end without a return statement unless they actually want the function to not exit properly in those cases
@@ -1743,6 +1818,18 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 	}
 	public long spos() {
 		return spos;
+	}
+	public long curOff() {
+		return cOff;
+	}
+	public void update(long n) {
+		cOff += n;
+	}
+	public void label(String nam, Label lbl) {
+		labels.put(nam, lbl);
+	}
+	public Function assoc() {
+		return this;
 	}
 }
 class Assignment implements Doable {
@@ -2244,16 +2331,16 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		for (FullType t : dargs) {
 			i++;
 			l = t.type.size();
-			totalFn += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+			totalFn += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? 0 : abiSize);
 			if (args.length <= i) {
 				dif = true;
 			}
 			else {
 				l = args[i].type.type.size();
 				if (i > 5) {
-					pur += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+					pur += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? 0 : abiSize);
 				}
-				totalAr += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+				totalAr += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? 0 : abiSize);
 				if (totalFn != totalAr) {
 					dif = true;
 				}
@@ -2262,9 +2349,9 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		for (i++; i < args.length; i++) {
 			l = args[i].type.type.size();
 			if (i > 5) {
-				pur += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+				pur += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? 0 : abiSize);
 			}
-			totalAr += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? abiSize : 0);
+			totalAr += ((l / abiSize) * abiSize) + (((l % abiSize) == 0) ? 0 : abiSize);
 		}
 		if (dif) {
 			if (Compiler.mach == 2) {
@@ -2275,9 +2362,9 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 					Util.warn("Function call provides less bits of data than specified by the function argument(s)");
 				}
 				else if (totalAr > totalFn) {
-					throw new NotImplementedException("This error message has not yet been written!");//TODO let compiler warn that this is a raw conversion, even noting this in ways which allow the last argument to be noted to be partially-used (the amount used is noted) when it is
+					Util.warn("Function call provides more bits of data than specified by the function argument(s)");
 				}
-				else {
+				else {//TODO don't display this when calling using the SystemV AMD64 ABI
 					StringBuilder sb = new StringBuilder();
 					sb.append("Raw conversion from provided argument(s) (");
 					for (i = 0; i < args.length; i++) {
@@ -2450,7 +2537,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			typ = vals[i].bring();
 			switch (typ.type.size()) {
 				case (8):
-					Compiler.text.println("xorb %ah,%ah");
+					Compiler.text.println("xorb %ah,%ah");//Not `movzbw %al,%ax' because movz doesn't exist on the 8086
 					Compiler.text.println("pushw %ax");
 					break;
 				case (64):
@@ -2625,16 +2712,17 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	public void pushMain() throws InternalCompilerException {
 		switch (size + Compiler.mach) {
 			case (8):
-				Compiler.text.println("movb %al,(%sp)");
-				Compiler.text.println("subw $1,%sp");
+				Compiler.text.println("movb %al,%ah");
+				Compiler.text.println("pushw %ax");
+				Compiler.text.println("incw %sp");
 				return;
 			case (9):
+				Compiler.text.println("decl %esp");
 				Compiler.text.println("movb %al,(%esp)");
-				Compiler.text.println("subl $1,%esp");
 				return;
 			case (10):
+				Compiler.text.println("decq %rsp");
 				Compiler.text.println("movb %al,(%rsp)");
-				Compiler.text.println("subq $1,%rsp");
 				return;
 			case (16):
 			case (17):
@@ -2649,8 +2737,8 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 				Compiler.text.println("pushl %eax");
 				return;
 			case (34):
-				Compiler.text.println("movl %eax,(%rsp)");
 				Compiler.text.println("subq $4,%rsp");
+				Compiler.text.println("movl %eax,(%rsp)");
 				return;
 			case (64):
 				Compiler.text.println("pushw %bx");
@@ -2671,16 +2759,17 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	public void popMain() throws InternalCompilerException {
 		switch (size + Compiler.mach) {
 			case (8):
-				Compiler.text.println("addw $1,%sp");
-				Compiler.text.println("movb (%sp),%al");
+				Compiler.text.println("decw %sp");
+				Compiler.text.println("popw %ax");
+				Compiler.text.println("movb %ah,%al");
 				return;
 			case (9):
-				Compiler.text.println("addl $1,%esp");
 				Compiler.text.println("movb (%esp),%al");
+				Compiler.text.println("incl %esp");
 				return;
 			case (10):
-				Compiler.text.println("addq $1,%rsp");
 				Compiler.text.println("movb (%rsp),%al");
+				Compiler.text.println("incq %rsp");
 				return;
 			case (16):
 			case (17):
@@ -2695,8 +2784,8 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 				Compiler.text.println("popl %eax");
 				return;
 			case (34):
-				Compiler.text.println("addq $4,%rsp");
 				Compiler.text.println("movl (%rsp),%eax");
+				Compiler.text.println("addq $4,%rsp");
 				return;
 			case (64):
 				Compiler.text.println("popw %ax");
@@ -2717,18 +2806,18 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	public void popAddr() throws InternalCompilerException {
 		switch (size + Compiler.mach) {
 			case (8):
-				Compiler.text.println("addw $1,%sp");
-				Compiler.text.println("movb (%sp),%al");
-				Compiler.text.println("movb %al,(%bx)");
+				Compiler.text.println("decw %sp");
+				Compiler.text.println("popw %ax");
+				Compiler.text.println("movb %ah,(%bx)");
 				return;
 			case (9):
-				Compiler.text.println("addl $1,%esp");
 				Compiler.text.println("movb (%esp),%bl");
+				Compiler.text.println("incl %esp");
 				Compiler.text.println("movb %bl,(%eax)");
 				return;
 			case (10):
-				Compiler.text.println("addq $1,%rsp");
 				Compiler.text.println("movb (%rsp),%bl");
+				Compiler.text.println("incq %rsp");
 				Compiler.text.println("movb %bl,(%rax)");
 				return;
 			case (16):
@@ -2802,12 +2891,16 @@ interface Compilable {
 }
 interface Doable extends Compilable {
 }
-interface Stacked {
+interface Stacked {//TODO have blocks have references to their functions
 	int abiSize();
 	FullType retType();
 	long adjust(long n);
 	long minOff();
 	long spos();
+	long curOff();
+	void update(long n);
+	void label(String nam, Label lbl);
+	Function assoc();
 }
 class StrDecl implements Compilable {
 	final String text;
@@ -2852,7 +2945,7 @@ class Str extends Value {
 			throw new InternalCompilerException("String backs as a non-addressable type");
 		}
 	}
-	static Str from() throws InternalCompilerException, IOException {//starts reading from directly after the opening doublequote
+	static Str from() throws CompilationException, InternalCompilerException, IOException {//starts reading from directly after the opening doublequote
 		int i;
 		boolean sl = false;
 		StringBuilder sb = new StringBuilder();
@@ -2862,6 +2955,9 @@ class Str extends Value {
 				return new Str(sb.toString());
 			}
 			sl = i == '\\';
+			if ((i == '\n') || (i == '\r')) {
+				throw new CompilationException("Unescaped newline characters in string literal notation");
+			}
 			sb.appendCodePoint(i);
 		}
 	}
@@ -2873,15 +2969,20 @@ class Block implements Doable, Stacked {
 	long spos;
 	Stacked parent;
 	Function assoc;
-	Block(Stacked p, Function a) {
+	final boolean looped;
+	Block(Stacked p, Function a, boolean loop) {
 		parent = p;
 		assoc = a;
 		spos = minOff = bpOff = p.minOff();
+		looped = loop;
 	}
 	static Block from(Stacked f) throws CompilationException, InternalCompilerException, IOException {
+		return from(f, false);
+	}
+	static Block from(Stacked f, boolean loop) throws CompilationException, InternalCompilerException, IOException {
 		ArrayList<Compilable> c = new ArrayList<Compilable>();
 		Compiler.context.push(new TreeMap<String, StackVar>());
-		Block b = new Block(f, (f instanceof Function) ? ((Function) f) : ((Block) f).assoc);
+		Block b = new Block(f, (f instanceof Function) ? ((Function) f) : ((Block) f).assoc, loop);
 		try {
 			while (true) {
 				Compiler.getCompilable(c, true, b);
@@ -2906,6 +3007,20 @@ class Block implements Doable, Stacked {
 		if (mo > 0) {
 			throw new InternalCompilerException("This exceptional condition should not occur!");
 		}
+		else if (mo == (-1)) {
+			switch (assoc.abiSize) {
+				case (16):
+					Compiler.text.println("decw %sp");
+					break;
+				case (32):
+					Compiler.text.println("decl %esp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
 		else if (mo < 0) {
 			switch (assoc.abiSize) {
 				case (16):
@@ -2920,10 +3035,26 @@ class Block implements Doable, Stacked {
 					throw new InternalCompilerException("Unidentifiable target");
 			}
 		}
+		update(mo);
 		for (Doable cpl : comps) {
 			cpl.compile();
 		}
-		if (mo < 0) {
+		update(-mo);
+		if (mo == (-1)) {
+			switch (assoc.abiSize) {
+				case (16):
+					Compiler.text.println("incw %sp");
+					break;
+				case (32):
+					Compiler.text.println("incl %esp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+		else if (mo < 0) {
 			switch (assoc.abiSize) {
 				case (16):
 					Compiler.text.println("addw $" + Util.signedRestrict(-mo, 16) + ",%sp");
@@ -2956,6 +3087,18 @@ class Block implements Doable, Stacked {
 	}
 	public long spos() {
 		return spos;
+	}
+	public long curOff() {
+		return assoc.curOff();
+	}
+	public void update(long l) {
+		assoc.update(l);
+	}
+	public void label(String nam, Label lbl) {
+		assoc.label(nam, lbl);
+	}
+	public Function assoc() {
+		return assoc;
 	}
 }
 abstract class Value extends Item implements Doable {
@@ -3842,6 +3985,76 @@ class Expression extends Value {
 				}
 			}
 		}
+	}
+}
+class Label implements Doable {
+	final String symb;
+	long bpOffset;
+	transient boolean valid;//what this was supposed to be for was forgotten
+	public boolean resolved;
+	final Stacked parent;
+	Label(Stacked par) {
+		symb = Util.reserve();
+		parent = par;
+		resolved = false;
+	}
+	public void compile() {
+		bpOffset = parent.curOff();
+		resolved = true;
+		Compiler.text.print(symb);
+		Compiler.text.println(':');
+	}
+}
+class Jump implements Doable {
+	String destName;
+	Stacked parent;
+	Jump(String nam, Stacked par) {
+		destName = nam;
+		parent = par;
+	}
+	public void compile() throws CompilationException, InternalCompilerException {
+		Label l = parent.assoc().labels.get(destName);
+		if (l == null) {
+			throw new CompilationException("Jumping statement attempts to jump to a named label which does not exist in the funciton under the specified name: " + destName);
+		}
+		if (!(l.resolved)) {
+			throw new NotImplementedException("Jumping statement attempts to jump to a label yet-unresolved base pointer offset");
+		}
+		long n = parent.curOff() - l.bpOffset;
+		if (n > 0) {
+			switch (Compiler.mach) {
+				case (0):
+					Compiler.text.print("subw $");
+					Compiler.text.print(Util.signedRestrict(n, 16));
+					Compiler.text.println(",%sp");
+				case (1):
+					Compiler.text.print("subl $");
+					Compiler.text.print(Util.signedRestrict(n, 33));
+					Compiler.text.println(",%esp");
+				case (2):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+		else if (n != 0) {
+			switch (Compiler.mach) {
+				case (0):
+					Compiler.text.print("addw $");
+					Compiler.text.print(Util.signedRestrict(-n, 16));
+					Compiler.text.println(",%sp");
+				case (1):
+					Compiler.text.print("addl $");
+					Compiler.text.print(Util.signedRestrict(-n, 33));
+					Compiler.text.println(",%esp");
+				case (2):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+		Compiler.text.print("jmp ");
+		Compiler.text.println(l.symb);
 	}
 }
 @SuppressWarnings("serial")

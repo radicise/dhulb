@@ -15,7 +15,7 @@
 	 *
 	 * Notes: A combination of one or more of the ASCII digits, digits may repeat, may be prefixed with at most one hyphen-minus, can have underscores anywhere, besides the hyphen-minus if there is one
 	 */
-	#utilise "parseDecimalInteger_32.s" docscan
+	#utilise "util_32.s" docscan
 #elif OPERAND_BITS == 16
 	#error "Not supported"
 #else
