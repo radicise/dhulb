@@ -30,4 +30,5 @@ u32 program ( u32 _, addr*addr*char _ ) {
     \\"
     \"""
     """;
+    $TEST$
 }

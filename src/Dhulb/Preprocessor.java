@@ -163,7 +163,11 @@ public class Preprocessor {// takes file stream and the directory path where the
                     }
                     sb.append((char)cbyte);
                 }
-                output.write(Integer.toString(defined.get(sb.toString())).getBytes());
+                try {
+                    output.write(Integer.toString(defined.get(sb.toString())).getBytes());
+                } catch (NullPointerException e) {
+                    throw new Exception("Attempted to insert the value of a preprocessor variable that was not defined");
+                }
                 cbyte = reader.read();
                 continue;
             }
