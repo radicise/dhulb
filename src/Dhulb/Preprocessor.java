@@ -156,10 +156,24 @@ public class Preprocessor {// takes file stream and the directory path where the
                 continue;
             }
             if (cbyte == '$') {
+                int tbyte = reader.read();
+                if (tbyte == -1) {
+                    output.write(cbyte);
+                    break;
+                }
+                if (tbyte != cbyte) {
+                    output.write(cbyte);
+                    continue;
+                }
                 StringBuilder sb = new StringBuilder();
                 while ((cbyte = reader.read()) != -1) {
                     if (cbyte == '$') {
-                        break;
+                        tbyte = reader.read();
+                        if (tbyte == -1 || tbyte == cbyte) {
+                            break;
+                        }
+                        sb.append(new char[]{(char)cbyte, (char)tbyte});
+                        continue;
                     }
                     sb.append((char)cbyte);
                 }
