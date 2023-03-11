@@ -4,7 +4,11 @@
  */
 #ifdef KERNEL_LINUX_I386
 	#if OPERAND_BITS >= 32
-		#import "linux-i386/sys.dhulb"
+		#if CALL_BITS == 32
+			#import "linux-i386/sys.dhulb"
+		#else
+			#error "Unsupported address size"
+		#endif
 	#else
 		#error "Unsupported operand size for the target kernel"
 	#endif

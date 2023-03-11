@@ -1760,7 +1760,23 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 					throw new InternalCompilerException("Unidentifiable target");
 			}
 		}
-		else if (minOff != 0) {
+		else if (minOff == 0) {
+			switch (abiSize) {
+				case (16):
+					Compiler.text.println("pushw %bp");
+					Compiler.text.println("movw %sp,%bp");
+					break;
+				case (32):
+					Compiler.text.println("pushl %ebp");
+					Compiler.text.println("movl %esp,%ebp");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Unidentifiable target");
+			}
+		}
+		else {
 			throw new InternalCompilerException("This exceptional condition should not occur!");
 		}
 		update(minOff);
@@ -2394,9 +2410,6 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			for (FullType t : dargs) {
 				i++;
 				if (!(args[i].type.equals(t))) {
-					if (args[i].type.type.size() != t.type.size()) {
-						throw new InternalCompilerException("This exceptional condition should not occur!");
-					}
 					if (args[i].type.type != t.type) {
 						Util.warn("Raw conversion from provided argument " + args[i].type.toString() + " to specified function argument " + t.toString());
 					}

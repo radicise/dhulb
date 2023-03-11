@@ -11,6 +11,8 @@ movl 16(%esp),%edx
 movl $0x03,%eax
 int $0x80
 popl %ebx
+cmpl $0xfffff000,%eax
+ja read_err
 retl
 write:/*dhulbDoc-v300:function;s32 write(s32, a32, u32) call32;*/
 pushl %ebx
@@ -20,4 +22,11 @@ movl 16(%esp),%edx
 movl $0x04,%eax
 int $0x80
 popl %ebx
+cmpl $0xfffff000,%eax
+ja write_err
+retl
+read_err:
+write_err:
+xorl %eax,%eax
+decl %eax
 retl
