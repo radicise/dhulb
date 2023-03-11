@@ -1,0 +1,11 @@
+#define STDIN 0
+#define STDOUT 1
+#define STDERR 2
+/*
+ * @Dhulb
+ * s32 exit(s32)
+ * arg0: Exit code
+ *
+ * Notes: This function does not return
+ */
+#utilise "sys.s" docscan

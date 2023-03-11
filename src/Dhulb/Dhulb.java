@@ -90,8 +90,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static final long numericVersion = /*00_00_0*/2_01;//TODO bump when needed, should be bumped every time that stringVersion is bumped; do NOT remove this to-do marker
-	public static final String stringVersion = "0.0.2.1";//TODO bump when needed, should be bumped every time that numericVersion is bumped; do NOT remove this to-do marker
+	public static final long numericVersion = /*00_00_0*/3_00;//TODO bump when needed, should be bumped in accord with every bump of stringVersion; do NOT remove this to-do marker
+	public static final String stringVersion = "0.0.3.0";//TODO bump when needed, should be bumped in accord with every bump with numericVersion; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
@@ -101,6 +101,10 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static boolean autoGlobals = false;
 	public static boolean oneText = false;
 	public static long buildTime = 0;
+	public static long ver_major = (numericVersion / 1000000L) % 100L;// do not make final
+	public static long ver_minor = (numericVersion / 10000L) % 100L;// do not make final
+	public static long ver_inframinor = (numericVersion / 100L) % 100L;// do not make final
+	public static long ver_subinframinor = numericVersion % 100L;// do not make final
 	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		buildTime = System.currentTimeMillis() / 1000L;
 		try {//TODO implement bulk memory movement syntax
@@ -393,7 +397,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		}
 		catch (UnidentifiableTypeException utt) {
 			s = utt.verbatim;//s = phrase(0x2d)
-			if (s.equals("class")) {
+			if (s.equals("class") || s.equals("struct")) {
 				Util.skipWhite();
 				String naam = Util.phrase(0x3d);
 				if (Compiler.structs.containsKey(naam)) {
@@ -608,7 +612,7 @@ class Util {
 	static long sen = 0;
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct"};
 	static ArrayList<String> accesk = new ArrayList<String>();
 	static String[] accese = new String[]{};
 	static ArrayList<String> boolitk = new ArrayList<String>();
@@ -2586,10 +2590,11 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 		Compiler.text.println("callq *%rax");
 	}
 }
-interface Typed {//EVERY Typed MUST have its `size()' result in a positive int that is evenly divisible by 8
+interface Typed {//EVERY Typed MUST have its `size()' result in a positive int below 65536 that is evenly divisible by 8
 	int size();
 	boolean addressable();
-	boolean floating() throws InternalCompilerException ;
+	boolean floating() throws InternalCompilerException;
+	boolean signed() throws InternalCompilerException;//only applicable for integral types
 	default boolean eq(Typed to) {
 		if ((this instanceof Type) != (to instanceof Type)) {
 			return false;
@@ -2636,6 +2641,9 @@ class StructuredType implements Typed {
 	public boolean floating() throws InternalCompilerException {
 		throw new InternalCompilerException("Requested boolean information is not applicable for a structured type");
 	}
+	public boolean signed() throws InternalCompilerException {
+		throw new InternalCompilerException("Requested boolean information is not applicable for a structured type");
+	}
 }
 enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	u8 (8, false, false),
@@ -2675,6 +2683,9 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	}
 	public boolean floating() {
 		return floating;
+	}
+	public boolean signed() {
+		return signed;
 	}
 	boolean fits(long l, boolean s) throws NotImplementedException {//the boolean expresses if the passed long's bits should be interpreted as signed
 		if (floating) {
@@ -2758,7 +2769,7 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 	}
 	public void popMain() throws InternalCompilerException {
 		switch (size + Compiler.mach) {
-			case (8):
+			case (8)://TODO maybe don't leave garbage in %ah and change the message in the comment(s) which refer(s) to this behaviour
 				Compiler.text.println("decw %sp");
 				Compiler.text.println("popw %ax");
 				Compiler.text.println("movb %ah,%al");
@@ -3267,6 +3278,7 @@ class Operator extends Item {
 	static final Operator LT = new Operator(false, '<');//("<") Less than
 	static final Operator STO = new Operator(false, 'S');//("->") Store to memory
 	static final Operator GET = new Operator(true, '@');//("@") Get a value from memory
+	static final Operator MOD = new Operator(false, '%');//("%") Arithmetic modulo
 	final boolean unary;
 	final int id;
 	Operator(boolean un, int ident) {
@@ -3312,6 +3324,7 @@ class Operator extends Item {
 		}
 		FullType RHtyp = RHO.type;
 		boolean alt = false;
+		int fn = 0;
 		switch (id) {
 			case ('-'):
 				alt = true;
@@ -3413,6 +3426,184 @@ class Operator extends Item {
 				RHO.bring().type.toAddr();
 				LHO.type.popAddr();
 				return Util.fromAddr();
+			case ('%'):
+				fn++;
+			case ('/'):
+				fn++;
+			case ('*'):
+				if ((LHO.type.floating()) || (RHO.type.type.floating())) {
+					throw new NotImplementedException();
+				}
+				switch (LHO.type.size()) {
+					case (8):
+						LHO.type.pushMain();
+						RHO.bring();
+						if (LHO.type.signed()) {
+							RHO.type.cast(FullType.s8);
+						}
+						else {
+							RHO.type.cast(FullType.u8);
+						}
+						Compiler.text.println("movb %al,%dl");//not to %ah because the byte popping puts garbage in %ah
+						LHO.type.popMain();
+						switch (fn) {
+							case (0):
+								if (LHO.type.signed()) {
+									Compiler.text.println("imulb %dl");
+									return LHO;//TODO allow larger type to be gotten
+								}
+								else {
+									Compiler.text.println("mulb %dl");
+									return LHO;//TODO allow larger type to be gotten
+								}
+							case (1):
+							case (2):
+								if (LHO.type.signed()) {
+									Compiler.text.println("idivb %dl");
+									if (fn == 2) {
+										Compiler.text.println("movb %ah,%al");
+									}
+									return LHO;
+								}
+								else {
+									Compiler.text.println("divb %dl");
+									if (fn == 2) {
+										Compiler.text.println("movb %ah,%al");
+									}
+									return LHO;
+								}
+							default:
+								throw new InternalCompilerException("Unknown operation");
+						}
+					case (16):
+						LHO.type.pushMain();
+						RHO.bring();
+						if (LHO.type.signed()) {
+							RHO.type.cast(FullType.s16);
+						}
+						else {
+							RHO.type.cast(FullType.u16);
+						}
+						Compiler.text.println("movw %ax,%dx");
+						LHO.type.popMain();
+						switch (fn) {
+							case (0):
+								if (LHO.type.signed()) {
+									Compiler.text.println("imulw %dx");
+									return LHO;//TODO allow larger type to be gotten
+								}
+								else {
+									Compiler.text.println("mulw %dx");
+									return LHO;//TODO allow larger type to be gotten
+								}
+							case (1):
+							case (2):
+								if (LHO.type.signed()) {
+									Compiler.text.println("idivw %dx");
+									if (fn == 2) {
+										Compiler.text.println("movw %dx,%ax");
+									}
+									return LHO;
+								}
+								else {
+									Compiler.text.println("divw %dx");
+									if (fn == 2) {
+										Compiler.text.println("movw %dx,%ax");
+									}
+									return LHO;
+								}
+							default:
+								throw new InternalCompilerException("Unknown operation");
+						}
+					case (32):
+						if (Compiler.mach < 1) {
+							throw new NotImplementedException();
+						}
+						LHO.type.pushMain();
+						RHO.bring();
+						if (LHO.type.signed()) {
+							RHO.type.cast(FullType.s32);
+						}
+						else {
+							RHO.type.cast(FullType.u32);
+						}
+						Compiler.text.println("movl %eax,%edx");
+						LHO.type.popMain();
+						switch (fn) {
+							case (0):
+								if (LHO.type.signed()) {
+									Compiler.text.println("imull %edx");
+									return LHO;//TODO allow larger type to be gotten
+								}
+								else {
+									Compiler.text.println("mull %edx");
+									return LHO;//TODO allow larger type to be gotten
+								}
+							case (1):
+							case (2):
+								if (LHO.type.signed()) {
+									Compiler.text.println("idivl %edx");
+									if (fn == 2) {
+										Compiler.text.println("movl %edx,%eax");
+									}
+									return LHO;
+								}
+								else {
+									Compiler.text.println("divl %edx");
+									if (fn == 2) {
+										Compiler.text.println("movl %edx,%eax");
+									}
+									return LHO;
+								}
+							default:
+								throw new InternalCompilerException("Unknown operation");
+						}
+					case (64):
+						if (Compiler.mach < 2) {
+							throw new NotImplementedException();
+						}
+						LHO.type.pushMain();
+						RHO.bring();
+						if (LHO.type.signed()) {
+							RHO.type.cast(FullType.s32);
+						}
+						else {
+							RHO.type.cast(FullType.u32);
+						}
+						Compiler.text.println("movq %rax,%rdx");
+						LHO.type.popMain();
+						switch (fn) {
+							case (0):
+								if (LHO.type.signed()) {
+									Compiler.text.println("imulq %rdx");
+									return LHO;//TODO allow larger type to be gotten
+								}
+								else {
+									Compiler.text.println("mulq %rdx");
+									return LHO;//TODO allow larger type to be gotten
+								}
+							case (1):
+							case (2):
+								if (LHO.type.signed()) {
+									Compiler.text.println("idivq %rdx");
+									if (fn == 2) {
+										Compiler.text.println("movq %rdx,%rax");
+									}
+									return LHO;
+								}
+								else {
+									Compiler.text.println("divq %rdx");
+									if (fn == 2) {
+										Compiler.text.println("movq %rdx,%rax");
+									}
+									return LHO;
+								}
+							default:
+								throw new InternalCompilerException("Unknown operation");
+						}
+					default:
+						throw new NotImplementedException();
+				}
 			default:
 				throw new NotImplementedException();
 		}
@@ -3425,9 +3616,21 @@ interface Storage {
 }
 class NoScopeVar extends Value implements Storage {
 	String name;//symbol name
+	final boolean ref;
 	NoScopeVar(String nam, FullType typ) {
 		name = nam;
 		type = typ;
+		ref = false;
+	}
+	NoScopeVar(NoScopeVar based, boolean refer) throws InternalCompilerException {
+		name = based.name;
+		if (refer) {
+			type = new FullType(Compiler.defAdr, based.type);
+		}
+		else {
+			type = based.type;
+		}
+		ref = refer;
 	}
 	public FullType type() {
 		return type;
@@ -3470,7 +3673,7 @@ class NoScopeVar extends Value implements Storage {
 					default:
 						throw new InternalCompilerException("Illegal datum size");
 				}
-			break;
+				break;
 			case (2):
 				throw new NotImplementedException();
 			default:
@@ -3478,6 +3681,22 @@ class NoScopeVar extends Value implements Storage {
 		}
 	}
 	public FullType bring() throws NotImplementedException, InternalCompilerException {
+		if (ref) {
+			switch (type.type.size()) {
+				case (16):
+					Compiler.text.println("movw $" + name + ",%ax");
+					break;
+				case (32):
+					Compiler.text.println("movl $" + name + ",%eax");
+					break;
+				case (64):
+					Compiler.text.println("movq $" + name + ",%rax");
+					break;	
+				default:
+					throw new InternalCompilerException("Illegal datum size for global variable reference");
+			}
+			return type;
+		}
 		switch (Compiler.mach) {
 			case (0):
 				switch (type.type.size()) {
@@ -3522,15 +3741,47 @@ class NoScopeVar extends Value implements Storage {
 	}
 }
 class StackVar extends Value implements Storage {//Arguments passed in the SystemVi386CallingConvention-like way are stack variables scoped to the entire function
-	long pos;//Offset from base pointer of calling convention
+	final long pos;//Offset from base pointer of calling convention
+	final boolean ref;
 	StackVar(long p, FullType typ) {
 		pos = p;
 		type = typ;
+		ref = false;
+	}
+	StackVar(StackVar based, boolean refer) throws InternalCompilerException {
+		pos = based.pos;
+		if (refer) {
+			type = new FullType(Compiler.defAdr, based.type);
+		}
+		else {
+			type = based.type;
+		}
+		ref = refer;
 	}
 	public FullType type() {
 		return type;
 	}
 	public FullType bring() throws InternalCompilerException, SizeNotFitException {
+		if (ref) {
+			switch (type.type.size()) {
+				case (16):
+					Compiler.text.println("leaw " + Util.signedRestrict(pos, 16) + "(%bp),%ax");
+					break;
+				case (32):
+					Compiler.text.println("leal " + Util.signedRestrict(pos, 33) + "(%ebp),%eax");
+					if (Compiler.mach < 1) {
+						Compiler.text.println("rorl 16,%eax");
+						Compiler.text.println("movw %ax,%dx");
+						Compiler.text.println("rorl 16,%eax");
+					}
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException("Illegal datum size for stack variable reference");
+			}
+			return type;
+		}
 		switch (Compiler.mach) {
 			case (0):
 				try {
@@ -3579,7 +3830,7 @@ class StackVar extends Value implements Storage {//Arguments passed in the Syste
 			case (2):
 				throw new NotImplementedException();
 			default:
-				throw new InternalCompilerException("Illegal target");
+				throw new InternalCompilerException("Unidentifiable target");
 		}
 		return type;
 	}
@@ -3632,7 +3883,7 @@ class StackVar extends Value implements Storage {//Arguments passed in the Syste
 			case (2):
 				throw new NotImplementedException();
 			default:
-				throw new InternalCompilerException("Illegal target");
+				throw new InternalCompilerException("Unidentifiable target");
 		}
 	}
 }
@@ -3802,6 +4053,7 @@ class Expression extends Value {
 		if (pri != null) {
 			ex.add(last = pri);
 		}
+		boolean cont;
 		while (true) {
 			Util.skipWhite();
 			int tg;
@@ -3822,6 +4074,7 @@ class Expression extends Value {
 				}
 				continue;
 			}
+			cont = false;
 			if (tg == '\"') {
 				ex.add(last = Str.from());
 				((Str) last).assoc.compile();
@@ -3839,7 +4092,56 @@ class Expression extends Value {
 				ex.auxEnding = tg != ending;
 				return ex;
 			}
-			else {
+			else if (tg == '%') {
+				if ((tg = Util.read()) == '[') {
+					Util.skipWhite();
+					String s = Util.phrase(0x2f);
+					switch (s) {
+						case ("size"):
+							Util.skipWhite();
+							ex.add(last = new Literal(FullType.u16, FullType.from().type.size()));
+							Util.skipWhite();
+							if ((tg = Util.read()) != ']') {
+								throw new CompilationException("Unexpected operator: " + new String(new int[]{tg}, 0, 1));
+							}
+							continue;
+						case ("prop")://the properties are compiler-dependent but the existence of the `prop' evaluator command is mandated
+							Util.skipWhite();
+							String p = Util.phrase(0x2f);
+							long l;//bits higher than the lowest 16 bits must not be set
+							switch (p) {//TODO use a mapping between property names and values
+								case ("ver_major"):
+									l = Compiler.ver_major;
+									break;
+								case ("ver_minor"):
+									l = Compiler.ver_minor;
+									break;
+								case ("ver_inframinor"):
+									l = Compiler.ver_inframinor;
+									break;
+								case ("ver_subinframinor"):
+									l = Compiler.ver_subinframinor;
+									break;
+								default:
+									throw new CompilationException("Unknown property: " + p);
+							}
+							ex.add(last = new Literal(FullType.u16, l));
+							Util.skipWhite();
+							if ((tg = Util.read()) != ']') {
+								throw new CompilationException("Unexpected operator: " + new String(new int[]{tg}, 0, 1));
+							}
+							continue;
+						default://TODO allow plug-ins to take advantage of this if / when plug-ins are supported
+							throw new CompilationException("Evaluator command not found: " + s);
+					}
+				}
+				else {
+					Util.unread(tg);
+					tg = '%';
+					cont = true;
+				}
+			}
+			else if (cont) {
 				Util.unread(tg);
 				String s = Util.phrase(0x2f);//do NOT change from 0x2f without updating the delimiter likewise for the cast / conversion chain checking for when performing a cast / conversion
 				Literal lit;
@@ -3977,6 +4279,25 @@ class Expression extends Value {
 								case ('@'):
 									ex.add(last = Operator.GET);
 									break;
+								case ('$'):
+									if (last instanceof NoScopeVar) {
+										if (((NoScopeVar) last).ref) {
+											throw new CompilationException("Attampted referencing of an already-referenced global variable expression item");
+										}
+										ex.skim(last);
+										ex.add(last = new NoScopeVar((NoScopeVar) last, true));
+									}
+									else if (last instanceof StackVar) {
+										if (((StackVar) last).ref) {
+											throw new CompilationException("Attampted referencing of an already-referenced stack variable expression item");
+										}
+										ex.skim(last);
+										ex.add(last = new StackVar((StackVar) last, true));
+									}
+									else {
+										throw new CompilationException("Attampted referencing of an expression item which is neither a global variable nor a stack variable");
+									}
+									break;
 								default:
 									throw new NotImplementedException();
 							}
@@ -4057,7 +4378,6 @@ class Jump implements Doable {
 		Compiler.text.println(l.symb);
 	}
 }
-@SuppressWarnings("serial")
 class InternalCompilerException extends Exception {
 	InternalCompilerException() {
 		super();
@@ -4066,7 +4386,6 @@ class InternalCompilerException extends Exception {
 		super(reas);
 	}
 }
-@SuppressWarnings("serial")
 class CompilationException extends Exception {
 	CompilationException() {
 		super();
@@ -4078,13 +4397,11 @@ class CompilationException extends Exception {
 		super(reas, t);
 	}
 }
-@SuppressWarnings("serial")
 class NondefinitionException extends CompilationException {
 	NondefinitionException(String reas) {
 		super(reas);
 	}
 }
-@SuppressWarnings("serial")
 class NotImplementedException extends InternalCompilerException {
 	NotImplementedException() {
 		super();
@@ -4093,7 +4410,6 @@ class NotImplementedException extends InternalCompilerException {
 		super(reas);
 	}
 }
-@SuppressWarnings("serial")
 class UnidentifiableTypeException extends CompilationException {
 	final String verbatim;
 	UnidentifiableTypeException(String s) {
@@ -4101,7 +4417,6 @@ class UnidentifiableTypeException extends CompilationException {
 		verbatim = s;
 	}
 }
-@SuppressWarnings("serial")
 class BlockEndException extends CompilationException {
 	BlockEndException() {
 		super();
@@ -4110,7 +4425,6 @@ class BlockEndException extends CompilationException {
 		super(reas);
 	}
 }
-@SuppressWarnings("serial")
 class SizeNotFitException extends CompilationException {
 	SizeNotFitException() {
 		super();

@@ -13,19 +13,15 @@ set_video_mode:/*dhulbDoc-v200:function;s16 set_video_mode(u8) call16;*/
 	set_video_mode__on_error:
 	movb $0x01,%al
 	retw
-
 cursor_pos_x:/*dhulbDoc-v200:globalvar;u8 cursor_pos_x;*/
 .globl cursor_pos_x
 	.byte 0x00
-
 cursor_pos_y:/*dhulbDoc-v200:globalvar;u8 cursor_pos_y;*/
 .globl cursor_pos_y
 	.byte 0x00
-
 print_format:/*dhulbDoc-v200:globalvar;u8 print_format;*/
 .globl print_format
 	.byte 0x07
-
 print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 .globl print
 	pushw %bp
@@ -68,9 +64,19 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	movw %bp,%sp
 	popw %bp
 	retw
-
 readScancode:/*dhulbDoc-v201:function;u16 readScancode() call16;*/
 .globl readScancode
 	xorw %ax,%ax
 	int $0x16
+	retw
+in_buffer:
+.byte 0x00
+.byte 0x00
+in:/*dhulbDoc-v202:function;u8 in() call16;*/
+	xorw %ax,%ax
+	int $0x16
+	cmpb $0x40,%ax
+	jae end
+	#TODO actually process stuff
+	in_end:
 	retw

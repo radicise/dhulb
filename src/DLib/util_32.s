@@ -1,5 +1,5 @@
 .text
-parseDecimalInteger:/*dhulbDoc-v200:function;s32 parseDecimalInteger(a32*u8) call32*/
+parseDecimalInteger:/*dhulbDoc-v200:function;s32 parseDecimalInteger(a32*u8) call32;*/
 .globl parseDecimalInteger
 pushl %esi
 pushl %ebx
