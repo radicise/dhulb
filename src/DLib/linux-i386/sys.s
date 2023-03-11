@@ -1,5 +1,5 @@
 exit:/*dhulbDoc-v300:function;s32 exit(s32) call32;*/
-movl %eax,%ebx
+movl 4(%esp),%ebx
 xorl %eax,%eax
 incl %eax
 int $0x80
