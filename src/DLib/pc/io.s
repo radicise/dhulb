@@ -12,6 +12,7 @@ set_video_mode:/*dhulbDoc-v200:function;s16 set_video_mode(u8) call16;*/
 	retw
 	set_video_mode__on_error:
 	movb $0x01,%al
+	popw %bp
 	retw
 cursor_pos_x:/*dhulbDoc-v200:globalvar;u8 cursor_pos_x;*/
 .globl cursor_pos_x
@@ -31,7 +32,7 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	movw 0x04(%bp),%si
 	movw $0xb800,%ax
 	movw %ax,%es
-	movb $0x19,%ah#width
+	movb $0x50,%ah#width
 	movb cursor_pos_y(,1),%al
 	mulb %ah
 	xorb %ch,%ch
@@ -54,7 +55,7 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	print__end:
 	movw %di,%ax
 	shrw %ax
-	movb $0x19,%cl#width
+	movb $0x50,%cl#width
 	divb %cl
 	movb %al,cursor_pos_y(,1)
 	movb %ah,cursor_pos_x(,1)
@@ -75,8 +76,8 @@ in_buffer:
 in:/*dhulbDoc-v202:function;u8 in() call16;*/
 	xorw %ax,%ax
 	int $0x16
-	cmpb $0x40,%ax
-	jae end
+	cmpb $0x40,%al
+	jae in_end
 	#TODO actually process stuff
 	in_end:
 	retw

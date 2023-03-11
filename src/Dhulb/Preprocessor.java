@@ -163,6 +163,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                 }
                 if (tbyte != cbyte) {
                     output.write(cbyte);
+		    cbyte = tbyte;
                     continue;
                 }
                 StringBuilder sb = new StringBuilder();
