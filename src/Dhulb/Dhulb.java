@@ -4141,7 +4141,10 @@ class Expression extends Value {
 					cont = true;
 				}
 			}
-			else if (cont) {
+			else {
+				cont = true;
+			}
+			if (cont) {
 				Util.unread(tg);
 				String s = Util.phrase(0x2f);//do NOT change from 0x2f without updating the delimiter likewise for the cast / conversion chain checking for when performing a cast / conversion
 				Literal lit;
