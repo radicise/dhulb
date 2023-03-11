@@ -13,9 +13,9 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 /*#import <sysmem.dhulb>*/
 #import <sys.dhulb>
 
-#utilize "fin.s" docscan
+/*#utilize "fin.s" docscan*/
 
-#utilize "../pc-compatible-tools/io.s" docscan
+/*#utilize "../pc-compatible-tools/io.s" docscan*/
 
 #utilize <test.s> all
 
@@ -30,4 +30,5 @@ u32 program ( u32 _, addr*addr*char _ ) {
     \\"
     \"""
     """;
+    $$TEST$$
 }

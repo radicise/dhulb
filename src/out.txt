@@ -1,18 +1,14 @@
 Config File Not Found:/etc/.dhulb_conf
-Config File Not Found:/Users/tristans/.dhulb_conf
+Config File Not Found:/Users/tschartman/.dhulb_conf
 Loading Config File:
-LibPath=/Users/tristans/Documents/GitHub/dhulb/src/DLib
-ExtPath=/Users/tristans/Documents/GitHub/dhulb/src/DExt
+LibPath=/Users/tschartman/Documents/GitHub/dhulb/src/DLib
+ExtPath=/Users/tschartman/Documents/GitHub/dhulb/src/DExt
 DefPath=PPD.dhulb_def
 reading def path:
-BITS16
 KERNEL_LINUX_I386=020400000
 OPERAND_BITS=32
 CALL_BITS=32
-NOKERNEL
-NOFLAGTEST
-FLAG1
-FLAG2
+TEST=2
 [import, <stdarrays.dhulb>]
 <stdarrays.dhulb>
 [require, DhulbArray]
@@ -25,14 +21,5 @@ stdalloc.dhulb
 ifdef: KERNEL_LINUX_I386 (true)
 [if, OPERAND_BITS, >=, 32]
 if: 32>=32 (true)
-[else]
-else check failed
-[elifdef, NOKERNEL]
-elifdef: NOKERNEL (true)
-elifdef check failed (else component), skipping
-[utilize, fin.s, docscan]
-fin.s
-[utilize, ../pc-compatible-tools/io.s, docscan]
-../pc-compatible-tools/io.s
 [utilize, <test.s>, all]
 <test.s>

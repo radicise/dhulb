@@ -1,9 +1,7 @@
 /*@Dhulb
 
 @utilize
-/Users/tristans/Documents/GitHub/dhulb/src/DLib/test.s
-/Users/tristans/Documents/GitHub/dhulb/src/fin.s
-/Users/tristans/Documents/GitHub/dhulb/src/../pc-compatible-tools/io.s
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/test.s
 */
 /*
 note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
@@ -177,25 +175,11 @@ int exit(int code) {
 				movl %eax,%ebx
 				xorl %eax,%eax
 				incl %eax
-				int $0x80
-			&/
-		
-	
-	return 1;/*This should not be reached*/
-}
+				int $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
+/*#utilize "fin.s" docscan*/
 
-imply a32 allocate(u32) call32;
-imply u32 exit(u32) call32;
-imply s32 x(u32, a32*a32*u8) call32;
-
-
-imply s16 set_video_mode(u8) call16;
-imply u8 cursor_pos_x;
-imply u8 cursor_pos_y;
-imply u8 print_format;
-imply u16 print(a16*u8, u16) call16;
-
+/*#utilize "../pc-compatible-tools/io.s" docscan*/
 
 imply s8 test(u8) call16;
 
@@ -211,4 +195,5 @@ u32 program ( u32 _, addr*addr*char _ ) {
     \\"
     \"""
     """;
+    2
 }
