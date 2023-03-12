@@ -2386,14 +2386,14 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 				}
 				else {//TODO don't display this when calling using the SystemV AMD64 ABI
 					StringBuilder sb = new StringBuilder();
-					sb.append("Raw conversion from provided argument(s) (");
+					sb.append("Raw conversion from provided argument type(s) (");
 					for (i = 0; i < args.length; i++) {
 						sb.append(args[i].type.toString());
 						if (i < (args.length - 1)) {
 							sb.append(", ");
 						}
 					}
-					sb.append(") to specified argument(s) (");
+					sb.append(") to specified argument type(s) (");
 					for (i = 0; i < dargs.length; i++) {
 						sb.append(dargs[i].toString());
 						if (i < (dargs.length - 1)) {
@@ -2411,7 +2411,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 				i++;
 				if (!(args[i].type.equals(t))) {
 					if (args[i].type.type != t.type) {
-						Util.warn("Raw conversion from provided argument " + args[i].type.toString() + " to specified function argument " + t.toString());
+						Util.warn("Raw conversion from provided argument type " + args[i].type.toString() + " to specified function argument type " + t.toString());
 					}
 					else {
 						if (!(t.type.addressable() && args[i].type.type.addressable())) {
@@ -3404,7 +3404,7 @@ class Operator extends Item {
 									Compiler.text.println("addw %bx,%ax");
 								}
 								if ((LHO.type == Type.a16) || (RHtyp.type == Type.a16)) {
-									return FullType.u16;
+									return FullType.a16;//TODO keep pointing clauses but not running clauses
 								}
 								else if ((LHO.type == Type.s16) || (RHtyp.type == Type.s16)) {
 									return FullType.s16;
@@ -3421,7 +3421,28 @@ class Operator extends Item {
 								throw new InternalCompilerException("Illegal datum size");
 						}
 					case (8)://u8 or s8
-						throw new NotImplementedException();
+						switch (RHtyp.type.size()) {
+							case (64):
+								throw new NotImplementedException();
+							case (32):
+								throw new NotImplementedException();
+							case (16):
+								throw new NotImplementedException();
+							case (8):
+								LHO.type.pushMain();
+								RHO.bring();
+								Compiler.text.println("movb %al,%dl");// not to %ah because the byte popping leaves garbage in %ah
+								LHO.type.popMain();
+								if (alt) {
+									Compiler.text.println("subb %dl,%al");
+								}
+								else {
+									Compiler.text.println("addb %dl,%al");
+								}
+								return (LHO.type.signed() || RHO.type.type.signed()) ? FullType.s8 : FullType.u8;
+							default:
+								throw new InternalCompilerException("Illegal datum size");
+					}
 					default:
 						throw new InternalCompilerException("Illegal datum size");
 				}

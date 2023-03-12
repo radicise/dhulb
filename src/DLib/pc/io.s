@@ -29,6 +29,7 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	movw %sp,%bp
 	pushw %si
 	pushw %di
+	pushw %bx
 	movw 0x04(%bp),%si
 	movw $0xb800,%ax
 	movw %ax,%es
@@ -41,18 +42,53 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	shlw %ax
 	movw %ax,%di
 	movw 0x06(%bp),%cx
-	xorw %dx,%dx
+	movb $0x50,%al#width
+	xorb %dh,%dh
+	movb %al,%dl
+	movb $0x19,%ah#height
+	mulb %ah
+	movw %ax,%bx
+	shlw $1,%bx
+	movw %dx,%bp
+	shlw $1,%bp
+	xorb %dl,%dl
 	movb print_format(,1),%ah
+	xorb $0xff,%es:1(%di)#TODO make optional
 	print__read_char:
 	lodsb
 	testb %al,%al
 	jz print__end
 	stosw
 	incw %dx
-	decw %cx
-	jz print__end
-	jmp print__read_char
+	cmpw %di,%bx
+	ja print__no_scroll
+	pushw %si
+	pushw %di
+	movw %es,%si
+	pushw %ds
+	movw %si,%ds#not using segment override prefix because of 8086 bug through which only the last prefix is used if there is an interrupt at a certain time
+	xorw %di,%di
+	movw %bp,%si
+	pushw %cx
+	movw %bx,%cx
+	subw %bp,%cx
+	shrw $1,%cx
+	rep
+	movsw
+	movb $0x20,%al#should this be a space?
+	movw %bp,%cx
+	shrw $1,%cx
+	rep
+	stosw
+	popw %cx
+	popw %ds
+	popw %di
+	popw %si
+	subw %bp,%di
+	print__no_scroll:
+	loop print__read_char
 	print__end:
+	xorb $0xff,%es:1(%di)#TODO make optional
 	movw %di,%ax
 	shrw %ax
 	movb $0x50,%cl#width
@@ -60,9 +96,9 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	movb %al,cursor_pos_y(,1)
 	movb %ah,cursor_pos_x(,1)
 	movw %dx,%ax
+	popw %bx
 	popw %di
 	popw %si
-	movw %bp,%sp
 	popw %bp
 	retw
 readScancode:/*dhulbDoc-v201:function;u16 readScancode() call16;*/
