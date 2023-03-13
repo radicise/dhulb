@@ -3292,6 +3292,11 @@ class Operator extends Item {
 	static final Operator STO = new Operator(false, 'S');//("->") Store to memory
 	static final Operator GET = new Operator(true, '@');//("@") Get a value from memory
 	static final Operator MOD = new Operator(false, '%');//("%") Arithmetic modulo
+	static final Operator EQ = new Operator(false, '=');//("==") Equality
+	static final Operator GTEQ = new Operator(false, 'g');//(">=") Greater than or equal to
+	static final Operator LTEQ = new Operator(false, 'l');//("<=") Less than or equal to
+	static String[] eops = new String[]{"add", "sub", "cmp"};
+	static final Operator CMP = new Operator(false, 'C');// Comparison, for internal use
 	final boolean unary;
 	final int id;
 	Operator(boolean un, int ident) {
@@ -3336,11 +3341,12 @@ class Operator extends Item {
 			throw new InternalCompilerException("Not a binary operator: " + this.toString());
 		}
 		FullType RHtyp = RHO.type;
-		boolean alt = false;
 		int fn = 0;
 		switch (id) {
+			case ('C'):
+				fn++;
 			case ('-'):
-				alt = true;
+				fn++;
 			case ('+'):
 				switch (LHO.type.size()) {
 					case (64):
@@ -3356,13 +3362,10 @@ class Operator extends Item {
 									case (1):
 										Compiler.text.println("pushl %eax");//TODO prevent the need for this move by bring()-ing directly to %bx and preserving %ax (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function might warn this function that it would be left in %ax)
 										RHO.bring();
-										Compiler.text.println("popl %ebx");
-										if (alt) {//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
-											Compiler.text.println("subl %ebx,%eax");
-										}
-										else {
-											Compiler.text.println("addl %ebx,%eax");
-										}
+										Compiler.text.println("movl %eax,%ebx");
+										Compiler.text.println("popl %eax");
+										Compiler.text.print(eops[fn]);
+										Compiler.text.println("l %ebx,%eax");//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
 										if ((LHO.type == Type.a32) || (RHtyp.type == Type.a32)) {
 											return FullType.u32;
 										}
@@ -3396,13 +3399,10 @@ class Operator extends Item {
 							case (16)://u16, s16, or a16
 								Compiler.text.println("pushw %ax");//TODO prevent the need for this move by bring()-ing directly to %bx and preserving %ax (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function might warn this function that it would be left in %ax)
 								RHO.bring();
-								Compiler.text.println("popw %bx");
-								if (alt) {//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
-									Compiler.text.println("subw %bx,%ax");
-								}
-								else {
-									Compiler.text.println("addw %bx,%ax");
-								}
+								Compiler.text.println("movw %ax,%bx");
+								Compiler.text.println("popw %ax");
+								Compiler.text.print(eops[fn]);
+								Compiler.text.println("w %bx,%ax");//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
 								if ((LHO.type == Type.a16) || (RHtyp.type == Type.a16)) {
 									return FullType.a16;//TODO keep pointing clauses but not running clauses
 								}
@@ -3433,12 +3433,8 @@ class Operator extends Item {
 								RHO.bring();
 								Compiler.text.println("movb %al,%dl");// not to %ah because the byte popping leaves garbage in %ah
 								LHO.type.popMain();
-								if (alt) {
-									Compiler.text.println("subb %dl,%al");
-								}
-								else {
-									Compiler.text.println("addb %dl,%al");
-								}
+								Compiler.text.print(eops[fn]);
+								Compiler.text.println("b %dl,%al");
 								return (LHO.type.signed() || RHO.type.type.signed()) ? FullType.s8 : FullType.u8;
 							default:
 								throw new InternalCompilerException("Illegal datum size");
@@ -3638,6 +3634,13 @@ class Operator extends Item {
 					default:
 						throw new NotImplementedException();
 				}
+			case ('='):
+				if (LHO.type.signed() != RHO.type.type.signed()) {
+					throw new NotImplementedException();
+				}
+				CMP.apply(LHO, RHO);
+				Compiler.text.println("setz %al");
+				return FullType.u8;
 			default:
 				throw new NotImplementedException();
 		}
