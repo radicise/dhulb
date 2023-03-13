@@ -44,3 +44,13 @@
  * returns: On error, -1; 0 otherwise
  */
 #utilise "deallocate-munmap.s"
+
+a32 malloc (u32 size) {
+	a32 ptr = alloc(size+4);
+	(size+4) -> ptr;
+	return ptr + 4;
+}
+
+s32 free (a32 pointer) {
+	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
+}

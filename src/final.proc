@@ -1,7 +1,9 @@
 /*@Dhulb
 
 @utilize
-/Users/tschartman/Documents/GitHub/dhulb/src/DLib/test.s
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/linux-i386/allocate-mmap-2_4.s
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/linux-i386/sys.s
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/linux-i386/deallocate-munmap.s
 */
 /*
 note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
@@ -13,187 +15,99 @@ COMMAND USED TO TEST THIS IS CURRENTLY:
 cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 */
 
-
-imply a64 malloc ( u64 );
-imply u8 free ( a32 );
-imply u16 sizeof ( a16 );
-
-/**
- * @dhelpdoc
- * @since {0.0}
- * @version {0.0.1}
- * @name {Array}
- * @origin {stdarrays}
- * @class
- * @description {
-    a static size array that provides methods to get and set items, as well as properties to get the length in items and the item size in bytes
- }
- * @provides {
-    Cleanable
-    Iterable
- }
- * @methods {
-    addr*Array<T> constructor ( u32 size ) : creates a new array with the specified size
-    addr*<T> getItem ( u32 idx ) : gets the value at the specified index
-    u8 setItem ( <T> item, u32 idx ) : sets the value at the specified index to the given item
-    u8 clear () : zeroes the array
- }
- * @generic {
-    T
- }
- */
-class Array<T> {
-    addr*<T> address;
-    u32 length;
-    u32 itemSize;
-    addr*Array<T> constructor ( u32 size ) {
-        addr*Array<T> structaddr = malloc(sizeof(Array));
-        structaddr.itemSize = sizeof(T);
-        structaddr.address = malloc(size * sizeof(T));
-        structaddr.length = size;
-        return structaddr;
-    }
-    u8 clear () {
-        return 0;
-    }
-    <T> getItem ( u32 idx ) {
-        return (address+(idx*itemSize))@;
-    }
-    u8 setItem ( <T> item, u32 idx ) {
-        item -> (address+(idx*itemsize));
-        /*sizeof(T);
-        /&
-            #IFDEF BITS16
-                testw %ax,$0x08
-                jz setItem_size8
-                testw %ax,$0x10
-                jz setItem_size16
-                testw %ax,$0x20
-                jz setItem_size32
-                movw %bp,%sp
-                popw %bp
-                movw $0x01,%ax
-                retw
-                setItem_8:
-                movw 16(%bp),%bx
-                movw (%bx),%bx
-                movw 12(%bp),%cx
-                movw (%ax,%cx,8)
-                movb (%bp),%al
-                
-
-            #ELIF BITS32
-                #error "unsupported"
-            #ENDIF
-        &/*/
-    }
-    u8 destroy () {
-        free(address);
-        return 0;
-    }
-}
-
-/**
- * @dhelpdoc
- * @since {0.0}
- * @version {0.0.1}
- * @name {List}
- * @origin {stdarrays}
- * @class
- * @description {
-    a growable list
- }
- * @provides {
-    Cleanable
-    Iterable
- }
- * @methods {
-    addr*List<T> constructor ( u32 size ) : creates a new List with specified capacity
-    u8 push ( <T> item ) : pushes a new item to the end of the List
-    <T> pop () : removes and returns the last item in the List, throws IndexOutOfBounds if length is zero
-    <T> getItem ( u32 idx ) : returns the item at the specified index
-    u8 setItem ( <T> item, u32 idx ) : sets the item at the specified index to the given value
- }
- * @generic {
-    T
- }
- */
-class List<T> {
-    /**
-     * @dhelpdoc
-     * @version {0.0.1}
-     * @since {0.0}
-     * @name {List.constructor}
-     * @origin {stdarrays}
-     * @func
-     * @description {
-        creates a new List with specified capacity
-     }
-     * @params {
-        u32 size : size of the list in items
-     }
-     * @returns {addr*List}
-     */
-    addr*List<T> constructor ( u32 size ) {
-        return 0;
-    }
-    u8 push ( <T> item ) {
-        return 0;
-    }
-    <T> pop () {
-        return 0;
-    }
-    <T> getItem ( u32 idx ) {
-        return 0;
-    }
-    u8 setItem ( <T> item, u32 idx ) {
-        return 0;
-    }
-    u8 destroy () {
-        return 0;
-    }
-}
+/*#import <stdarrays.dhulb>*/
 /*#import "flagtest"*/
 /*#import <sysmem.dhulb>*/
 /*
  * sys.dhulb
  * Created on 2023-01-24
  */
+
+	
+		
+			
+
+
 /*
  * @Dhulb
- * int exit(int)
+ * s32 exit(s32)
  * arg0: Exit code
- * returns: 1
  *
  * Notes: This function does not return
  */
-int exit(int code) {
-	
+/*
+ * @Dhulb
+ * s32 read(s32, a32, u32)
+ * arg0: File descriptor
+ * arg1: Address to read data to
+ * arg2: Amount of bytes of data to read
+ * returns: On error, -1; otherwise, the amount of bytes read
+ */
+/*
+ * @Dhulb
+ * s32 write(s32, a32, u32)
+ * arg0: File descriptor
+ * arg1: Address to write data from
+ * arg2: Amount of bytes of data to write
+ * returns: On error, -1; otherwise, the amount of bytes written
+ */
+imply s32 exit(s32) call32;
+imply s32 read(s32, a32, u32) call32;
+imply s32 write(s32, a32, u32) call32;
+
+
+	/*
+	 * @Dhulb
+	 * a32 alloc(u32)
+	 * arg0: The amount of bytes to allocate
+	 * returns: On error, NULL; otherwise, the address of the allocated memory
+	 */
+	imply a32 alloc(u32) call32;
+
+
+/*
+ * @Dhulb
+ * s32 dealloc(a32, u32)
+ * arg0: The address of memory allocated with `alloc' to be deallocated
+ * arg1: The amount of bytes of the original allocation with `alloc' which gave the value of arg0
+ * returns: On error, -1; 0 otherwise
+ */
+imply s32 dealloc(a32, u32) call32;
+
+
+a32 malloc (u32 size) {
+	a32 ptr = alloc(size+4);
+	(size+4) -> ptr;
+	return ptr + 4;
+}
+
+s32 free (a32 pointer) {
+	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
+}
+
+int _start (uint argc, addr*addr*u8 argv) {
+	a32 ptr = malloc(4);
+	0x68656c6f -> ptr;
+	write(1, ptr, 4);
+	free(ptr);
+	exit(0);
+}
+
 		
-			code;
-			/&
-				movl %eax,%ebx
-				xorl %eax,%eax
-				incl %eax
-				int $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+	
+
+
+
 
 /*#utilize "fin.s" docscan*/
 
 /*#utilize "../pc-compatible-tools/io.s" docscan*/
 
-imply s8 test(u8) call16;
-
+/*#utilize <test.s> all*/
 
 /*#require "DhulbStdClasses"*/
 /*#require "DhulbStdRedirect" defunct*/
 
-u32 program ( u32 _, addr*addr*char _ ) {
-    /*String str = new String();*/
-    Array<u32> arr = new Array<u32>(10);
-    """
-    #import "something"
-    \\"
-    \"""
-    """;
-    2
-}
+/*u32 program ( u32 argc, addr*addr*char argv ) {
+    exit(0);
+}*/

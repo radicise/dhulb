@@ -9,17 +9,33 @@ KERNEL_LINUX_I386=020400000
 OPERAND_BITS=32
 CALL_BITS=32
 TEST=2
-[import, <stdarrays.dhulb>]
-<stdarrays.dhulb>
-[require, DhulbArray]
-DhulbArray
-[import, stdalloc.dhulb]
-stdalloc.dhulb
 [import, <sys.dhulb>]
 <sys.dhulb>
 [ifdef, KERNEL_LINUX_I386]
 ifdef: KERNEL_LINUX_I386 (true)
 [if, OPERAND_BITS, >=, 32]
 if: 32>=32 (true)
-[utilize, <test.s>, all]
-<test.s>
+[if, CALL_BITS, ==, 32]
+if: 32==32 (true)
+[import, linux-i386/sys.dhulb]
+linux-i386/sys.dhulb
+[define, STDIN, 0]
+[define, STDOUT, 1]
+[define, STDERR, 2]
+[utilise, sys.s, docscan]
+sys.s
+[if, KERNEL_LINUX_I386, >=, 020400000]
+if: 20400000>=020400000 (true)
+[utilise, allocate-mmap-2_4.s, docscan]
+allocate-mmap-2_4.s
+[else]
+else check failed
+[utilise, deallocate-munmap.s]
+deallocate-munmap.s
+[else]
+else check failed
+[else]
+else check failed
+[elifdef, NOKERNEL]
+elifdef: NOKERNEL (false)
+elifdef check failed (else component), skipping
