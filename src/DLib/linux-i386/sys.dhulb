@@ -43,14 +43,12 @@
  * arg1: The amount of bytes of the original allocation with `alloc' which gave the value of arg0
  * returns: On error, -1; 0 otherwise
  */
-#utilise "deallocate-munmap.s"
-
+#utilise "deallocate-munmap.s" docscan
 a32 malloc (u32 size) {
-	a32 ptr = alloc(size+4);
-	(size+4) -> ptr;
-	return ptr + 4;
+	size = size + 4;
+	return (size -> alloc(size)) + 4;
 }
-
 s32 free (a32 pointer) {
 	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
 }
+#utilise "compat.s" docscan
