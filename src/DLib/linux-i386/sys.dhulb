@@ -54,11 +54,3 @@ a32 malloc (u32 size) {
 s32 free (a32 pointer) {
 	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
 }
-
-int _start (uint argc, addr*addr*u8 argv) {
-	a32 ptr = malloc(4);
-	0x68656c6f -> ptr;
-	write($$STDOUT$$, ptr, 4);
-	free(ptr);
-	exit(0);
-}
