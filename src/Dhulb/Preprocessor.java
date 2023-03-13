@@ -149,6 +149,22 @@ public class Preprocessor {// takes file stream and the directory path where the
                         }
                         cbyte = reader.read();
                     }
+                } else if (tbyte == '&' || tbyte == '%') {
+                    output.write(cbyte);
+                    output.write(tbyte);
+                    cbyte = reader.read();
+                    while (cbyte != -1) {
+                        output.write(cbyte);
+                        if (cbyte == tbyte) {
+                            cbyte = reader.read();
+                            if (cbyte == '/') {
+                                output.write(cbyte);
+                                cbyte = reader.read();
+                                break;
+                            }
+                            continue;
+                        }
+                    }
                 } else {
                     output.write(cbyte);
                     cbyte = tbyte;
@@ -515,15 +531,15 @@ public class Preprocessor {// takes file stream and the directory path where the
                 passComments = true;
             } else if (arg.equalsIgnoreCase("-no-cfg-file")) {
                 noCfgFiles = true;
-            } else if (arg.matches("-(cwd|CWD)=")) {
+            } else if (arg.matches("-(cwd|CWD)=.*")) {
                 cwd = Paths.get(arg.split("=",2)[1]);
             } else if (arg.matches("-(conf|CONF)=.*")) {
                 cfgPath = Paths.get(arg.split("=",2)[1]);
-            } else if (arg.matches("-(lp|LP)=")) {
+            } else if (arg.matches("-(lp|LP)=.*")) {
                 libPaths.add(Paths.get(arg.split("=",2)[1]));
-            } else if (arg.matches("-(ep|EP)=")) {
+            } else if (arg.matches("-(ep|EP)=.*")) {
                 extPaths.add(Paths.get(arg.split("=",2)[1]));
-            } else if (arg.matches("-(dp|DP)=")) {
+            } else if (arg.matches("-(dp|DP)=.*")) {
                 defPaths.add(Paths.get(arg.split("=",2)[1]));
             } else {
                 boolean isa = arg.contains("=");

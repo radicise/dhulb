@@ -1,3 +1,0 @@
-imply a64 malloc ( u64 );
-imply u8 free ( a32 );
-imply u16 sizeof ( a16 );
