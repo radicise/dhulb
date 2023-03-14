@@ -1,6 +1,6 @@
 print:/*dhulbDoc-v300:function;s32 print(a32*u8) call32;*/
-pushl %esi
-movl 8(%esp),%esi
+pushl %edi
+movl 8(%esp),%edi
 xorl %ecx,%ecx
 decl %ecx
 movw %ds,%ax
@@ -10,7 +10,8 @@ repnz
 scasb
 notl %ecx
 decl %ecx
-pushl 8(%esp)
+pushl %ecx
+pushl 12(%esp)
 pushl $0x01#$$STDOUT$$
 calll write
 addl $0x0c,%esp
