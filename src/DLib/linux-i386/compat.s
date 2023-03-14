@@ -10,10 +10,11 @@ repnz
 scasb
 notl %ecx
 decl %ecx
+movl %ecx,%eax
 pushl %ecx
 pushl 12(%esp)
 pushl $0x01#$$STDOUT$$
 calll write
 addl $0x0c,%esp
-popl %esi
+popl %edi
 retl

@@ -48,3 +48,18 @@ notl %eax
 popl %ebx
 popl %esi
 retl
+stringlength:/*dhulbDoc-v300:function;u32 stringlength(a32*u8) call32;*/
+pushl %edi
+movl 8(%esp),%edi
+xorl %ecx,%ecx
+decl %ecx
+movw %ds,%ax
+movw %ax,%es
+xorb %al,%al
+repnz
+scasb
+notl %ecx
+decl %ecx
+movl %ecx,%eax
+popl %edi
+retl

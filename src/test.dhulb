@@ -11,7 +11,9 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 /*#import <stdarrays.dhulb>*/
 /*#import "flagtest"*/
 /*#import <sysmem.dhulb>*/
-#import <sys.dhulb>
+/*#import <sys.dhulb>*/
+
+#import <stdstr.dhulb>
 
 /*#utilize "fin.s" docscan*/
 
@@ -22,6 +24,7 @@ cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
 /*#require "DhulbStdClasses"*/
 /*#require "DhulbStdRedirect" defunct*/
 
-/*u32 program ( u32 argc, addr*addr*char argv ) {
+int _start ( u32 argc, addr*addr*char argv ) {
+    
     exit(0);
-}*/
+}
