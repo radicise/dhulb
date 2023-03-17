@@ -155,8 +155,8 @@ public class Preprocessor {// takes file stream and the directory path where the
                     cbyte = reader.read();
                     while (cbyte != -1) {
                         output.write(cbyte);
+                        cbyte = reader.read();
                         if (cbyte == tbyte) {
-                            cbyte = reader.read();
                             if (cbyte == '/') {
                                 output.write(cbyte);
                                 cbyte = reader.read();
@@ -564,14 +564,17 @@ public class Preprocessor {// takes file stream and the directory path where the
                 }
             }
         }
+        // RecoverableOutputStream rOut = new RecoverableOutputStream(printstrm);
         RecoverableOutputStream rOut = new RecoverableOutputStream();
         preprocess(reader, cwd, new PrintStream(rOut));
+        printstrm.println(Arrays.toString(required.toArray()));
         for (String req : required) {
             for (Path extPath : extPaths) {
                 @SuppressWarnings("unchecked")
                 Class<? extends DhulbExtension> cls = (Class<? extends DhulbExtension>) Class.forName(extPath.resolve(req).toString().replace(cwd.toString(), "").substring(1).replaceAll("/", "."));
                 Method m = cls.getDeclaredMethod("dothing", new Class[]{InputStream.class, OutputStream.class});
                 InputStream send = new ByteArrayInputStream(Arrays.copyOfRange(rOut.data, 0, rOut.wpos));
+                // RecoverableOutputStream rec = new RecoverableOutputStream(printstrm);
                 RecoverableOutputStream rec = new RecoverableOutputStream();
                 m.invoke(null, new Object[]{send, rec});
                 rOut.close();

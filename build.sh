@@ -7,3 +7,5 @@ cd src
 javac -d ../bin Dhulb/Dhulb.java
 javac -d ../bin Dhulb/Preprocessor.java
 javac -d ../bin Dhulb/Dhelp.java
+javac -d ../bin Dhulb/NullOutputStream.java
+javac -d ../bin Dhulb/RecoverableOutputStream.java
