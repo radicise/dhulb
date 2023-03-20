@@ -48,7 +48,8 @@ notl %eax
 popl %ebx
 popl %esi
 retl
-stringlength:/*dhulbDoc-v300:function;u32 stringlength(a32*u8) call32;*/
+strlen:/*dhulbDoc-v300:function;u32 strlen(a32*u8) call32;*/
+.globl strlen
 pushl %edi
 movl 8(%esp),%edi
 xorl %ecx,%ecx

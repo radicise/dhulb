@@ -780,6 +780,178 @@ class Util {
 		}
 		return sb.toString();
 	}
+	static void sx(int from, int to) throws InternalCompilerException {
+		switch (to) {
+			case (16):
+				Compiler.text.println("cbtw");
+				break;
+			case (32):
+				switch (from) {
+					case (16):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("cwtd");
+						}
+						else {
+							Compiler.text.println("cwtl");
+						}
+						break;
+					case (8):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("cbtw");
+							Compiler.text.println("cwtd");
+						}
+						else {
+							Compiler.text.println("cbtw");
+							Compiler.text.println("cwtl");
+						}
+						break;
+					default:
+						throw new InternalCompilerException("Illegal size for bit-wise extension");
+				}
+				break;
+			case (64):
+				switch (from) {
+					case (32):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("movw %ax,%cx");
+							Compiler.text.println("movw %dx,%ax");
+							Compiler.text.println("cwtd");
+							Compiler.text.println("xchgw %dx,%cx");
+							Compiler.text.println("xchgw %ax,%dx");
+							Compiler.text.println("movw %cx,%bx");
+						}
+						else if (Compiler.mach == 1) {
+							Compiler.text.println("cltd");
+						}
+						else {
+							Compiler.text.println("cltq");
+						}
+						break;
+					case (16):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("cwtd");
+							Compiler.text.println("movw %dx,%cx");
+							Compiler.text.println("movw %dx,%bx");
+						}
+						else if (Compiler.mach == 1) {
+							Compiler.text.println("cwtl");
+							Compiler.text.println("cltd");
+						}
+						else {
+							Compiler.text.println("cwtl");
+							Compiler.text.println("cltq");
+						}
+						break;
+					case (8):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("cbtw");
+							Compiler.text.println("cwtd");
+							Compiler.text.println("movw %dx,%cx");
+							Compiler.text.println("movw %dx,%bx");
+						}
+						else if (Compiler.mach == 1) {
+							Compiler.text.println("cbtw");
+							Compiler.text.println("cwtl");
+							Compiler.text.println("cltd");
+						}
+						else {
+							Compiler.text.println("cbtw");
+							Compiler.text.println("cwtl");
+							Compiler.text.println("cltq");
+						}
+						break;
+					default:
+						throw new InternalCompilerException("Illegal size for bit-wise extension");
+				}		
+				break;
+			default:
+				throw new InternalCompilerException("Illegal size for bit-wise extension");
+		}
+	}
+	static void zx(int from, int to) throws InternalCompilerException {
+		switch (to) {
+			case (16):
+				if (Compiler.mach == 0) {
+					Compiler.text.println("xorb %ah,%ah");
+				}
+				else {
+					Compiler.text.println("movzbw %al,%ax");
+				}
+				break;
+			case (32):
+				switch (from) {
+					case (16):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("xorw %dx,%dx");
+						}
+						else {
+							Compiler.text.println("movzwl %ax,%eax");
+						}
+						break;
+					case (8):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("xorb %ah,%ah");
+							Compiler.text.println("xorw %dx,%dx");
+						}
+						else {
+							Compiler.text.println("movzbl %al,%eax");
+						}
+						break;
+					default:
+						throw new InternalCompilerException("Illegal size for bit-wise extension");
+				}
+				break;
+			case (64):
+				switch (from) {
+					case (32):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("xorw %cx,%cx");
+							Compiler.text.println("xorw %bx,%bx");
+						}
+						else if (Compiler.mach == 1) {
+							Compiler.text.println("xorl %edx,%edx");
+						}
+						else {
+							Compiler.text.println("movl %eax,%eax");
+						}
+						break;
+					case (16):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("xorw %dx,%dx");
+							Compiler.text.println("xorw %cx,%cx");
+							Compiler.text.println("xorw %bx,%bx");
+						}
+						else if (Compiler.mach == 1) {
+							Compiler.text.println("movzwl %ax,%eax");
+							Compiler.text.println("xorl %edx,%edx");
+						}
+						else {
+							Compiler.text.println("movzwq %ax,%rax");
+						}
+						break;
+					case (8):
+						if (Compiler.mach == 0) {
+							Compiler.text.println("xorb %ah,%ah");
+							Compiler.text.println("xorw %dx,%dx");
+							Compiler.text.println("xorw %cx,%cx");
+							Compiler.text.println("xorw %bx,%bx");
+						}
+						else if (Compiler.mach == 1) {
+							Compiler.text.println("movzbl %al,%eax");
+							Compiler.text.println("xorl %edx,%edx");
+						}
+						else {
+							Compiler.text.println("movzbq %al,%rax");
+						}
+						break;
+					default:
+						throw new InternalCompilerException("Illegal size for bit-wise extension");
+				}		
+				break;
+			default:
+				throw new InternalCompilerException("Illegal size for bit-wise extension");
+		}
+	}
 	static FullType fromAddr() throws InternalCompilerException {
 		switch (Compiler.mach) {
 			case (0):
@@ -1617,7 +1789,7 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 		return sj.toString();
 	}
 	public void compile() throws CompilationException, InternalCompilerException, IOException {
-		Compiler.text.println("/*dhulbDoc-v" + Compiler.numericVersion + ":structure;" + toString() + ";*/");
+		Compiler.rwdata.println("/*dhulbDoc-v" + Compiler.numericVersion + ":structure;" + toString() + ";*/");
 		for (Map.Entry<String, Function>  sf: funcs.entrySet()) {
 			sf.getValue().compile();
 		}
@@ -2004,6 +2176,12 @@ class FullType {//Like Type but with possible pointing or running clauses
 		return sb.toString();
 	}
 	static FullType from() throws UnidentifiableTypeException, CompilationException, InternalCompilerException, IOException {//Throws UnidentifiableTypeText when the phrase(0x29) call yields a string which does not correspond to any valid type or any valid type shorthand notation
+		int g = Util.read();
+		if (g == '*') {
+			Util.skipWhite();
+			return new FullType(Compiler.defAdr, from());
+		}
+		Util.unread(g);
 		String s = Util.phrase(0x2d);
 		Typed typ;
 		if (Util.primsk.contains(s)) {
@@ -2060,8 +2238,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 					throw new CompilationException("Cannot impose pointing clause for non-addressable type");
 				}
 				Util.skipWhite();
-				FullType given = from();
-				return new FullType(typ, given);
+				return new FullType(typ, from());
 			}
 			else if (ci == '$') {
 				if (!(typ.addressable())) {
@@ -2622,10 +2799,10 @@ interface Typed {//EVERY Typed MUST have its `size()' result in a positive int b
 	void popAddr() throws InternalCompilerException;
 	void toAddr() throws CompilationException, InternalCompilerException;
 }
-class StructuredType implements Typed {
+class StructuredType implements Typed {//TODO fix `size()' returning 0 when the struct has no items conflicting with the need or the result of the call to be positive
 	Structure struct;
 	public int size() {
-		return (int) struct.length;//TODO maybe fix the need for casting; structs longer than the int max value are not supported in this manner
+		return (int) (struct.length * 8L);//TODO maybe fix the need for casting; structs longer than the int max value are not supported in this manner
 	}
 	public boolean addressable() {
 		return false;
@@ -3145,21 +3322,16 @@ class GlobalVarDecl implements Compilable {
 			Compiler.rwdata.print(".globl ");
 			Compiler.rwdata.println(name);
 		}
-		switch (type.type.size()) {
-			case (8):
-				Compiler.rwdata.println(".byte 0x00");
-				break;
-			case (16):
-				Compiler.rwdata.println(".byte 0x00, 0x00");
-				break;
-			case (32):
-				Compiler.rwdata.println(".byte 0x00, 0x00, 0x00, 0x00");
-				break;
-			case (64):
-				Compiler.rwdata.println(".byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00");
-				break;
-			default:
-				throw new InternalCompilerException("Illegal datum size");
+		if ((type.type.size() % 8L) != 0) {
+			throw new InternalCompilerException("Non-byte-aligned size");
+		}
+		long b = type.type.size() / 8L;
+		if (b != 0) {
+			Compiler.rwdata.print(".byte");
+			for (; b != 0; b--) {
+				Compiler.rwdata.print(" 0x00");
+			}
+			Compiler.rwdata.println();
 		}
 	}
 }
@@ -3264,7 +3436,7 @@ class Casting extends Operator {
 	FullType apply(FullType typ) throws CompilationException, InternalCompilerException {
 		if (raw) {
 			if (from.type.size() < to.type.size()) {
-				throw new NotImplementedException();
+				Util.zx(from.type.size(), to.type.size());
 			}
 		}
 		else {
@@ -4216,9 +4388,6 @@ class Expression extends Value {
 				else {
 					if ((s.equals("as")) || (s.equals("to"))) {
 						boolean raw = s.equals("as");
-						if (raw) {
-							Util.warn("Raw conversion");
-						}
 						if (!(last instanceof Value)) {
 							throw new CompilationException(raw ? "Raw conversion of a non-value" : "Casting of a non-value");
 						}

@@ -44,15 +44,6 @@
  * returns: On error, -1; 0 otherwise
  */
 #utilise "deallocate-munmap.s" docscan
-#if OPERAND_BITS == 16
-a16 malloc (u16 size) {
-	size = size + 4;
-	return (size -> alloc(size)) + 4;
-}
-s16 free (a16 pointer) {
-	return dealloc(pointer-4, ((pointer-4) as a16*u16)@);
-}
-#elif OPERAND_BITS == 32
 a32 malloc (u32 size) {
 	size = size + 4;
 	return (size -> alloc(size)) + 4;
@@ -60,7 +51,4 @@ a32 malloc (u32 size) {
 s32 free (a32 pointer) {
 	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
 }
-#else
-#error "UNKNOWN OPERAND SIZE"
-#endif
 #utilise "compat.s" docscan

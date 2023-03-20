@@ -1,4 +1,5 @@
 print:/*dhulbDoc-v300:function;s32 print(a32*u8) call32;*/
+.globl print
 pushl %edi
 movl 8(%esp),%edi
 xorl %ecx,%ecx
