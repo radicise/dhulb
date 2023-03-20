@@ -1,9 +1,4 @@
 package Dhulb;
-<<<<<<< HEAD
-
-import java.io.InputStream;
-import java.io.OutputStream;
-=======
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -16,7 +11,6 @@ import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
->>>>>>> unsplit
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;

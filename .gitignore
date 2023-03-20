@@ -6,3 +6,9 @@
 *.DS_Store
 *.o
 *.bin
+pc-compatible-tools/boot-inter.s
+pc-compatible-tools/boot-inter.o
+pc-compatible-tools/boot.bin
+pc-compatible-tools/boot-precursor-pp.dhulb
+pc-compatible-tools/boot.o
+pc-compatible-tools/io.o
