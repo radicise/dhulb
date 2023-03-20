@@ -1,0 +1,4 @@
+# Preprocessor variable definitions for i386 Linux 2.4.0 as a target
+KERNEL_LINUX_I386=020400000
+OPERAND_BITS=32
+CALL_BITS=32

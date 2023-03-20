@@ -1,0 +1,23 @@
+/*
+ * util.dhulb
+ * Created on 2023-02-20
+ * 
+ * This file contains utility functions which have no dependencies outside of this file
+ */
+#if OPERAND_BITS == 64
+	#error "Not supported"
+#elif OPERAND_BITS == 32
+	/*
+	 * @Dhulb
+	 * s32 parseDecimalInteger(a32*u8)
+	 * arg0: Pointer to null-terminated ASCII string
+	 * returns: A decimal integer parsed from the null-terminated ASCII string at the given pointer, using the specification-prescribed format; for strings not in the specified format, the value -1 is returned; usage of format-conforming strings which do not fit within the return type causes undefined behaviour
+	 *
+	 * Notes: A combination of one or more of the ASCII digits, digits may repeat, may be prefixed with at most one hyphen-minus, can have underscores anywhere, besides the hyphen-minus if there is one
+	 */
+	#utilise "util_32.s" docscan
+#elif OPERAND_BITS == 16
+	#error "Not supported"
+#else
+	#error "Unsupported operand size
+#endif

@@ -1,0 +1,20 @@
+/*
+ * sys.dhulb
+ * Created on 2023-01-24
+ */
+#ifdef KERNEL_LINUX_I386
+	#if OPERAND_BITS >= 32
+		#if CALL_BITS == 32
+			#import "linux-i386/sys.dhulb"
+		#else
+			#error "Unsupported address size"
+		#endif
+	#else
+		#error "Unsupported operand size for the target kernel"
+	#endif
+#elifdef NOKERNEL
+	#error "A target kernel is needed"
+#else
+	#error "Unsupported target kernel"
+#endif
+

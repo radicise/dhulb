@@ -1,0 +1,30 @@
+/*
+note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
+the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
+*/
+/*
+PWD must be "src"
+COMMAND USED TO TEST THIS IS CURRENTLY:
+cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
+*/
+
+/*#import <stdarrays.dhulb>*/
+/*#import "flagtest"*/
+/*#import <sysmem.dhulb>*/
+/*#import <sys.dhulb>*/
+
+#import <stdstr.dhulb>
+
+/*#utilize "fin.s" docscan*/
+
+/*#utilize "../pc-compatible-tools/io.s" docscan*/
+
+/*#utilize <test.s> all*/
+
+/*#require "DhulbStdClasses"*/
+/*#require "DhulbStdRedirect" defunct*/
+
+int _start ( u32 argc, addr*addr*char argv ) {
+    
+    exit(0);
+}

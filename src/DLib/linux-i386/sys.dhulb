@@ -1,0 +1,54 @@
+#define STDIN 0
+#define STDOUT 1
+#define STDERR 2
+/*
+ * @Dhulb
+ * s32 exit(s32)
+ * arg0: Exit code
+ *
+ * Notes: This function does not return
+ */
+/*
+ * @Dhulb
+ * s32 read(s32, a32, u32)
+ * arg0: File descriptor
+ * arg1: Address to read data to
+ * arg2: Amount of bytes of data to read
+ * returns: On error, -1; otherwise, the amount of bytes read
+ */
+/*
+ * @Dhulb
+ * s32 write(s32, a32, u32)
+ * arg0: File descriptor
+ * arg1: Address to write data from
+ * arg2: Amount of bytes of data to write
+ * returns: On error, -1; otherwise, the amount of bytes written
+ */
+#utilise "sys.s" docscan
+#if KERNEL_LINUX_I386 >= 020400000
+	/*
+	 * @Dhulb
+	 * a32 alloc(u32)
+	 * arg0: The amount of bytes to allocate
+	 * returns: On error, NULL; otherwise, the address of the allocated memory
+	 */
+	#utilise "allocate-mmap-2_4.s" docscan
+#else
+	#warn "Target Linux version is below 2.4, a32 allocate(s32) is not available for this platform; not including a32 allocatei"
+#endif
+/*
+ * @Dhulb
+ * s32 dealloc(a32, u32)
+ * arg0: The address of memory allocated with `alloc' to be deallocated
+ * arg1: The amount of bytes of the original allocation with `alloc' which gave the value of arg0
+ * returns: On error, -1; 0 otherwise
+ */
+#utilise "deallocate-munmap.s" docscan
+a32 malloc (u32 size) {
+	size = size + 4;
+	return (size -> alloc(size)) + 4;
+}
+s32 free (a32 pointer) {
+	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
+}
+#utilise "compat.s" docscan

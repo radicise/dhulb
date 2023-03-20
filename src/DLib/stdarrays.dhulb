@@ -1,0 +1,138 @@
+#require "DhulbArray"
+#import "stdalloc.dhulb"
+
+/**
+ * @dhelpdoc
+ * @since {0.0}
+ * @version {0.0.1}
+ * @name {Array}
+ * @origin {stdarrays}
+ * @class
+ * @description {
+    a static size array that provides methods to get and set items, as well as properties to get the length in items and the item size in bytes
+ }
+ * @provides {
+    Cleanable
+    Iterable
+ }
+ * @methods {
+    addr*Array<T> constructor ( u32 size ) : creates a new array with the specified size
+    addr*<T> getItem ( u32 idx ) : gets the value at the specified index
+    u8 setItem ( <T> item, u32 idx ) : sets the value at the specified index to the given item
+    u8 clear () : zeroes the array
+ }
+ * @generic {
+    T
+ }
+ */
+class Array<T> {
+    addr*<T> address;
+    u32 length;
+    u32 itemSize;
+    addr*Array<T> constructor ( u32 size ) {
+        addr*Array<T> structaddr = malloc(sizeof(Array));
+        structaddr.itemSize = sizeof(T);
+        structaddr.address = malloc(size * sizeof(T));
+        structaddr.length = size;
+        return structaddr;
+    }
+    u8 clear () {
+        return 0;
+    }
+    <T> getItem ( u32 idx ) {
+        return (address+(idx*itemSize))@;
+    }
+    u8 setItem ( <T> item, u32 idx ) {
+        item -> (address+(idx*itemsize));
+        /*sizeof(T);
+        /&
+            #IFDEF BITS16
+                testw %ax,$0x08
+                jz setItem_size8
+                testw %ax,$0x10
+                jz setItem_size16
+                testw %ax,$0x20
+                jz setItem_size32
+                movw %bp,%sp
+                popw %bp
+                movw $0x01,%ax
+                retw
+                setItem_8:
+                movw 16(%bp),%bx
+                movw (%bx),%bx
+                movw 12(%bp),%cx
+                movw (%ax,%cx,8)
+                movb (%bp),%al
+                
+
+            #ELIF BITS32
+                #error "unsupported"
+            #ENDIF
+        &/*/
+    }
+    u8 destroy () {
+        free(address);
+        return 0;
+    }
+}
+
+/**
+ * @dhelpdoc
+ * @since {0.0}
+ * @version {0.0.1}
+ * @name {List}
+ * @origin {stdarrays}
+ * @class
+ * @description {
+    a growable list
+ }
+ * @provides {
+    Cleanable
+    Iterable
+ }
+ * @methods {
+    addr*List<T> constructor ( u32 size ) : creates a new List with specified capacity
+    u8 push ( <T> item ) : pushes a new item to the end of the List
+    <T> pop () : removes and returns the last item in the List, throws IndexOutOfBounds if length is zero
+    <T> getItem ( u32 idx ) : returns the item at the specified index
+    u8 setItem ( <T> item, u32 idx ) : sets the item at the specified index to the given value
+ }
+ * @generic {
+    T
+ }
+ */
+class List<T> {
+    /**
+     * @dhelpdoc
+     * @version {0.0.1}
+     * @since {0.0}
+     * @name {List.constructor}
+     * @origin {stdarrays}
+     * @func
+     * @description {
+        creates a new List with specified capacity
+     }
+     * @params {
+        u32 size : size of the list in items
+     }
+     * @returns {addr*List}
+     */
+    addr*List<T> constructor ( u32 size ) {
+        return 0;
+    }
+    u8 push ( <T> item ) {
+        return 0;
+    }
+    <T> pop () {
+        return 0;
+    }
+    <T> getItem ( u32 idx ) {
+        return 0;
+    }
+    u8 setItem ( <T> item, u32 idx ) {
+        return 0;
+    }
+    u8 destroy () {
+        return 0;
+    }
+}

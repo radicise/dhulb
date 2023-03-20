@@ -1,0 +1,39 @@
+/*#require "stdclasses"*/
+#import <sys.dhulb>
+#import <util.dhulb>
+
+class String {
+    #if OPERAND_BITS == 16
+    a16*u8 characters;
+    u16 length;
+    u16 capacity;
+    a16*String constructor (a16*u8 str) {
+        a16*String structaddr = malloc(%[size String]);
+        u16 result = stringlength(str);
+    #elif OPERAND_BITS == 32
+    a32*u8 characters;
+    u32 length;
+    u32 capacity;
+    a32*String constructor (a32*u8 str) {
+        a32*String structaddr = malloc(%[size String]);
+        u32 result = stringlength(str);
+    #elif OPERAND_BITS == 64
+    a64*u8 characters;
+    u64 length;
+    u64 capacity;
+    a64*String constructor (a64*u8 str) {
+        #error "not implemented"
+    #else
+    #error "unknown operand size"
+    #endif
+	/*result is the length (including the null byte), unless it is zero, in which case the null byte could not be found*/
+	/*NOTE: The %di might have overflowed during the scan, leading to an unreliable value in `result'*/
+        structaddr.length = result;
+        structaddr.capacity = structaddr.length;
+        structaddr.characters = malloc(structaddr.capacity);
+        return structaddr;
+    }
+    u8 destroy() {
+        free(this.characters);
+    }
+}

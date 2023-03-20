@@ -1,0 +1,113 @@
+/*@Dhulb
+
+@utilize
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/linux-i386/allocate-mmap-2_4.s
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/linux-i386/sys.s
+/Users/tschartman/Documents/GitHub/dhulb/src/DLib/linux-i386/deallocate-munmap.s
+*/
+/*
+note that ".stub" files are NOT a part of spec and are not planned to be part of it at present,
+the use of ".stub" in this instance is simply to show that the contents of the files are not actual dhulb code and are, in fact, testing stubs
+*/
+/*
+PWD must be "src"
+COMMAND USED TO TEST THIS IS CURRENTLY:
+cat test.dhulb | java Dhulb/Preprocessor out.txt -pass-comments > final.proc
+*/
+
+/*#import <stdarrays.dhulb>*/
+/*#import "flagtest"*/
+/*#import <sysmem.dhulb>*/
+/*
+ * sys.dhulb
+ * Created on 2023-01-24
+ */
+
+	
+		
+			
+
+
+/*
+ * @Dhulb
+ * s32 exit(s32)
+ * arg0: Exit code
+ *
+ * Notes: This function does not return
+ */
+/*
+ * @Dhulb
+ * s32 read(s32, a32, u32)
+ * arg0: File descriptor
+ * arg1: Address to read data to
+ * arg2: Amount of bytes of data to read
+ * returns: On error, -1; otherwise, the amount of bytes read
+ */
+/*
+ * @Dhulb
+ * s32 write(s32, a32, u32)
+ * arg0: File descriptor
+ * arg1: Address to write data from
+ * arg2: Amount of bytes of data to write
+ * returns: On error, -1; otherwise, the amount of bytes written
+ */
+imply s32 exit(s32) call32;
+imply s32 read(s32, a32, u32) call32;
+imply s32 write(s32, a32, u32) call32;
+
+
+	/*
+	 * @Dhulb
+	 * a32 alloc(u32)
+	 * arg0: The amount of bytes to allocate
+	 * returns: On error, NULL; otherwise, the address of the allocated memory
+	 */
+	imply a32 alloc(u32) call32;
+
+
+/*
+ * @Dhulb
+ * s32 dealloc(a32, u32)
+ * arg0: The address of memory allocated with `alloc' to be deallocated
+ * arg1: The amount of bytes of the original allocation with `alloc' which gave the value of arg0
+ * returns: On error, -1; 0 otherwise
+ */
+imply s32 dealloc(a32, u32) call32;
+
+
+a32 malloc (u32 size) {
+	a32 ptr = alloc(size+4);
+	(size+4) -> ptr;
+	return ptr + 4;
+}
+
+s32 free (a32 pointer) {
+	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
+}
+
+int _start (uint argc, addr*addr*u8 argv) {
+	a32 ptr = malloc(4);
+	0x68656c6f -> ptr;
+	write(1, ptr, 4);
+	free(ptr);
+	exit(0);
+}
+
+		
+	
+
+
+
+
+/*#utilize "fin.s" docscan*/
+
+/*#utilize "../pc-compatible-tools/io.s" docscan*/
+
+/*#utilize <test.s> all*/
+
+/*#require "DhulbStdClasses"*/
+/*#require "DhulbStdRedirect" defunct*/
+
+/*u32 program ( u32 argc, addr*addr*char argv ) {
+    exit(0);
+}*/

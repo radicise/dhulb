@@ -1,0 +1,15 @@
+This document is help for invocations of the Dhulb compiler (`dhulbc'). For information on the language specification, see the The Dhulb Language Specification.
+
+
+Invocation:
+dhulbc 16|32|64 -[t][N]
+
+
+Argument description:
+
+
+Argument 0: The instruction set used; "16" utilises that of the 8086 and generates code for it, "32" does the same for that of 80386 and and generates code for it, and "64" does the same for AMD64
+
+Argument 1: Each optional character used represents a flag being set. Usage is as follows:
+	t	Prints the compiler's stack trace upon compilation errors
+	N	Enables usage of platform-dependent type names
