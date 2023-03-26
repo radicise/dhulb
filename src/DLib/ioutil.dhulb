@@ -23,14 +23,14 @@ int readLine(int fd, *u8 dest, uint count) {
 	}
 	/*del and mvmt*/
 	if (in == 0x0a) {
-		0 to u8 -> (dest + mPos);
+		0 as u8 -> (dest + mPos);
 		return 0;
 	}
 	if (mPos == count) {
 		goto readLine__loop;
 	}
-	in to u8 -> (dest + pos);
+	in as u8 -> (dest + pos);
 	pos = pos + 1;
 	mPos = mPos + 1;
-	goto readLine_loop;
+	goto readLine__loop;
 }

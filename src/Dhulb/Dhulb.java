@@ -3575,7 +3575,7 @@ class Operator extends Item {
 										Compiler.text.print(eops[fn]);
 										Compiler.text.println("l %ebx,%eax");//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
 										if ((LHO.type == Type.a32) || (RHtyp.type == Type.a32)) {
-											return FullType.u32;
+											return FullType.a32;
 										}
 										else if ((LHO.type == Type.s32) || (RHtyp.type == Type.s32)) {
 											return FullType.s32;
