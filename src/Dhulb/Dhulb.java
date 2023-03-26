@@ -67,7 +67,7 @@ class Dhulb {
 		}
 	}
 }
-class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those)
+class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those), "require"
 	public static PrintStream nowhere;//Never be modified after initial setting
 	public static PrintStream prologue;
 	public static PrintStream epilogue;
@@ -300,6 +300,11 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			Util.skipWhite();
 			Label l;
 			s = Util.phrase(0x3d);
+			for (Map<String, StackVar> cn : context) {
+				if (cn.containsKey(s)) {
+					throw new CompilationException("Label naming collision: label " + s + " is defined again in the same scope or an enclosing scope");
+				}
+			}
 			if (fn.assoc().labels.containsKey(s)) {
 				throw new CompilationException("Duplicate label name in the same function: " + s);
 			}
@@ -448,6 +453,9 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						FullType ft = FullType.from();
 						Util.skipWhite();
 						String r = Util.phrase(0x3d);//identifier legality is not checked for, this is on purpose
+						if (Compiler.HVars.containsKey(r) || Compiler.HFuncs.containsKey(r)) {
+							throw new CompilationException("Implied symbol is already defined: " + r);
+						}
 						Util.skipWhite();
 						int ne = Util.read();
 						if (ne == '(') {
@@ -490,7 +498,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						return;
 					case ("return"):
 						if (!(inFunc)) {
-							throw new CompilationException("Keyword `return' is not allowed outside of a function");
+							throw new CompilationException("Keyword `return' is not allowed outside of functions");
 						}
 						Util.skipWhite();
 						list.add(new Yield(Expression.from(';'), fn.retType(), fn.abiSize()));
@@ -504,7 +512,6 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						}
 						return;
 					case ("goto"):
-					case ("jump"):
 						if (inFunc) {
 							Util.skipWhite();
 							s = Util.phrase(0x3d);
@@ -517,6 +524,26 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						}
 						else {
 							throw new NotImplementedException();//TODO implement `goto' statements and labels outside of functions
+						}
+						return;
+					case ("jump"):
+						FullType e = Expression.from(';').bring();
+						if (!(e.type.addressable())) {
+							throw new CompilationException("Raw jump to a non-addressable type");
+						}
+						e.type.toAddr();
+						switch (Compiler.CALL_SIZE_BITS) {
+							case (16):
+								Compiler.text.println("jmpl *%eax");
+								break;
+							case (32):
+								Compiler.text.println("jmpl *%eax");
+								break;
+							case (64):
+								Compiler.text.println("jmpl *%eax");
+								break;
+							default:
+								throw new InternalCompilerException("Illegal call size");
 						}
 						return;
 					default:
@@ -556,8 +583,11 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		if (inFunc) {
 			for (Map<String, StackVar> cn : context) {
 				if (cn.containsKey(s)) {
-					throw new CompilationException("Stack variable naming collision: " + s + " is defined again in the same scope or an enclosing scope");
+					throw new CompilationException("Stack variable naming collision: stack variable " + s + " is defined again in the same scope or an enclosing scope");
 				}
+			}
+			if (fn.assoc().labels.containsKey(s)) {
+				throw new CompilationException("Stack variable naming collision: " + s + " is defined in the same scope or an enclosing scope, as a label");
 			}
 		}
 		else {
@@ -612,7 +642,7 @@ class Util {
 	static long sen = 0;
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct"};
 	static ArrayList<String> accesk = new ArrayList<String>();
 	static String[] accese = new String[]{};
 	static ArrayList<String> boolitk = new ArrayList<String>();
@@ -2179,7 +2209,12 @@ class FullType {//Like Type but with possible pointing or running clauses
 		int g = Util.read();
 		if (g == '*') {
 			Util.skipWhite();
-			return new FullType(Compiler.defAdr, from());
+			try {
+				return new FullType(Compiler.defAdr, from());
+			}
+			catch (UnidentifiableTypeException E) {
+				throw new CompilationException("Unidentifiable type: " + E.verbatim);//TODO set `E' as the cause
+			}
 		}
 		Util.unread(g);
 		String s = Util.phrase(0x2d);
@@ -3077,7 +3112,7 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 			case (18):
 				Compiler.text.println("movzwl %ax,%eax");
 			case (34):
-				Compiler.text.println("and %eax,%eax");
+				Compiler.text.println("andl %eax,%eax");
 			case (66):
 				return;
 			default:
@@ -3468,6 +3503,7 @@ class Operator extends Item {
 	static final Operator GTEQ = new Operator(false, 'g');//(">=") Greater than or equal to
 	static final Operator LTEQ = new Operator(false, 'l');//("<=") Less than or equal to
 	static String[] eops = new String[]{"add", "sub", "cmp"};
+	static String[] cond = new String[]{"z", "a", "ae", "b", "be", "z", "g", "ge", "l", "le"};
 	static final Operator CMP = new Operator(false, 'C');// Comparison, for internal use
 	final boolean unary;
 	final int id;
@@ -3806,12 +3842,25 @@ class Operator extends Item {
 					default:
 						throw new NotImplementedException();
 				}
+			case ('l'):
+				fn++;
+			case ('<'):
+				fn++;
+			case ('g'):
+				fn++;
+			case ('>'):
+				fn++;
 			case ('='):
 				if (LHO.type.signed() != RHO.type.type.signed()) {
 					throw new NotImplementedException();
 				}
+				if (LHO.type.signed()) {
+					fn += 5;
+				}
 				CMP.apply(LHO, RHO);
-				Compiler.text.println("setz %al");
+				Compiler.text.print("set");
+				Compiler.text.print(cond[fn]);
+				Compiler.text.println(" %al");
 				return FullType.u8;
 			default:
 				throw new NotImplementedException();
@@ -4505,6 +4554,32 @@ class Expression extends Value {
 									}
 									else {
 										throw new CompilationException("Attampted referencing of an expression item which is neither a global variable nor a stack variable");
+									}
+									break;
+								case ('='):
+									if ((i = Util.read()) == '=') {
+										ex.add(last = Operator.EQ);
+									}
+									else {
+										throw new NotImplementedException();
+									}
+									break;
+								case ('>'):
+									if ((i = Util.read()) == '=') {
+										ex.add(last = Operator.GTEQ);
+									}
+									else {
+										Util.unread(i);
+										ex.add(last = Operator.GT);
+									}
+									break;
+								case ('<'):
+									if ((i = Util.read()) == '=') {
+										ex.add(last = Operator.LTEQ);
+									}
+									else {
+										Util.unread(i);
+										ex.add(last = Operator.LT);
 									}
 									break;
 								default:
