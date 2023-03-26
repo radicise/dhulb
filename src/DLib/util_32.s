@@ -64,3 +64,18 @@ decl %ecx
 movl %ecx,%eax
 popl %edi
 retl
+bcmp:/*dhulbDoc-v300:function;s8 bcmp(a32*u8, a32*u8, u32) call32*/
+.globl bcmp
+movw %ds,%ax
+movw %ax,%es
+movl 4(%esp),%esi
+movl 8(%esp),%edi
+movl 12(%esp),%ecx
+repz
+cmpsb
+setb %al
+rorb $1,%al
+cbtw
+setnz %al
+orb %ah,%al
+retl

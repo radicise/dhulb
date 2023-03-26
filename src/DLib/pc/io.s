@@ -31,7 +31,7 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	pushw %di
 	pushw %bx
 	movw 0x04(%bp),%si
-	movw $0xb800,%ax
+	movw $0xb800,%ax#TODO make based on a global variable
 	movw %ax,%es
 	movb $0x50,%ah#width
 	movb cursor_pos_y(,1),%al
@@ -53,13 +53,18 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	shlw $1,%bp
 	xorb %dl,%dl
 	movb print_format(,1),%ah
-	xorb $0xff,%es:1(%di)#TODO make optional
+	xorb $0x77,%es:1(%di)#TODO make optional
 	print__read_char:
 	lodsb
 	testb %al,%al
 	jz print__end
-	stosw
 	incw %dx
+	cmpb $0x0a,%al
+	jz print__lf
+	cmpb $0x0d,%al
+	jz print__cr
+	stosw
+	print__cont:
 	cmpw %di,%bx
 	ja print__no_scroll
 	pushw %si
@@ -88,7 +93,7 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	print__no_scroll:
 	loop print__read_char
 	print__end:
-	xorb $0xff,%es:1(%di)#TODO make optional
+	xorb $0x77,%es:1(%di)#TODO make optional
 	movw %di,%ax
 	shrw %ax
 	movb $0x50,%cl#width
@@ -101,6 +106,19 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	popw %si
 	popw %bp
 	retw
+	print__lf:
+	addw %bp,%di
+	/**/#TODO optional `jmp print__cont'
+	print__cr:
+	pushw %ax
+	pushw %dx
+	movw %di,%ax
+	xorw %dx,%dx
+	divw %bp
+	subw %dx,%di
+	popw %dx
+	popw %ax
+	jmp print__cont
 readScancode:/*dhulbDoc-v201:function;u16 readScancode() call16;*/
 .globl readScancode
 	xorw %ax,%ax
@@ -113,7 +131,14 @@ in:/*dhulbDoc-v202:function;u8 in() call16;*/
 	xorw %ax,%ax
 	int $0x16
 	cmpb $0x40,%al
-	jae in_end
-	#TODO actually process stuff
-	in_end:
+	jae in__end
+	cmpw $0x1c0d,%ax
+	jz in__enter
+	jmp in__end
+	in__enter:
+	movb $0x0a,%al
+	retw
+	jmp in__end
+	#TODO actually process more stuff
+	in__end:
 	retw

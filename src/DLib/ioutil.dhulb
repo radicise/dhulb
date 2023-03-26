@@ -1,0 +1,36 @@
+/*
+ *
+ * ioutil.dhulb
+ * Created on 2023-03-25
+ *
+ */
+/*
+ * Requisite:
+ * int read(int, addr, uint);
+ * int bread(int);
+ * int write(int, addr, uint);
+ * int bwrite(int, u8);
+ */
+int readLine(int fd, *u8 dest, uint count) {
+	count = count - 1;
+	uint pos = 0;
+	uint mPos = 0;
+	int in;
+	:readLine__loop;
+	in = bread(fd);
+	if (in < 0) {
+		return in;
+	}
+	/*del and mvmt*/
+	if (in == 0x0a) {
+		0 to u8 -> (dest + mPos);
+		return 0;
+	}
+	if (mPos == count) {
+		goto readLine__loop;
+	}
+	in to u8 -> (dest + pos);
+	pos = pos + 1;
+	mPos = mPos + 1;
+	goto readLine_loop;
+}

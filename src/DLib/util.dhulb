@@ -17,7 +17,7 @@
 	 */
 	#utilise "util_32.s" docscan
 #elif OPERAND_BITS == 16
-	#error "Not supported"
+	#utilise "util_16.s" docscan
 #else
 	#error "Unsupported operand size
 #endif
