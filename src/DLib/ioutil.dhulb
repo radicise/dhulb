@@ -4,14 +4,9 @@
  * Created on 2023-03-25
  *
  */
-/*
- * Requisite:
- * int read(int, addr, uint);
- * int bread(int);
- * int write(int, addr, uint);
- * int bwrite(int, u8);
- */
-int readLine(int fd, *u8 dest, uint count) {
+#import <sys.dhulb>
+#import "util.dhulb"
+int readLine(int fd, int fdo, *u8 dest, uint count) {
 	count = count - 1;
 	uint pos = 0;
 	uint mPos = 0;
@@ -23,14 +18,30 @@ int readLine(int fd, *u8 dest, uint count) {
 	}
 	/*del and mvmt*/
 	if (in == 0x0a) {
+		bwrite(fdo, in as u8);
 		0 as u8 -> (dest + mPos);
 		return 0;
 	}
 	if (mPos == count) {
 		goto readLine__loop;
 	}
+	bwrite(fdo, in as u8);
 	in as u8 -> (dest + pos);
 	pos = pos + 1;
 	mPos = mPos + 1;
 	goto readLine__loop;
+}
+int print(*u8 a) {
+	return write($$STDOUT_FILENO$$, a, strlen(a));
+}
+int println(*u8 a) {
+	sint g = write($$STDOUT_FILENO$$, a, strlen(a));
+	if (g < 0) {
+		return g;
+	}
+	int h = bwrite($$STDOUT_FILENO$$, 0x0a as u8);
+	if (h < 0) {
+		return h;
+	}
+	return g + h;
 }

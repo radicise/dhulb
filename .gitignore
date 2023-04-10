@@ -9,3 +9,4 @@
 /pc-compatible-tools/boot-precursor-pp.dhulb
 /pc-compatible-tools/boot.o
 /pc-compatible-tools/io.o
+/src/DLib/stall

@@ -110,13 +110,13 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		try {//TODO implement bulk memory movement syntax
 			try {//TODO create a way for an address to be gotten from a named global function
 				nowhere = new PrintStream(new NullOutputStream());
-				prologue = new PrintStream(new BufferedOutputStream(System.out));
+				prologue = new PrintStream(new BufferedOutputStream(System.out, 0x01000000));
 				proback = prologue;
-				epilogue = new PrintStream(new BufferedOutputStream(System.out));
+				epilogue = new PrintStream(new BufferedOutputStream(System.out, 0x01000000));
 				epiback = epilogue;
-				rwdata = new PrintStream(new BufferedOutputStream(System.out));
+				rwdata = new PrintStream(new BufferedOutputStream(System.out, 0x01000000));
 				rwdatback = rwdata;
-				text = new PrintStream(new BufferedOutputStream(System.out));
+				text = new PrintStream(new BufferedOutputStream(System.out, 0x01000000));
 				texback = text;
 				//TODO prologue
 				ma(argv);//TODO accept constant macros from the pre-processor
@@ -300,6 +300,12 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			Util.skipWhite();
 			Label l;
 			s = Util.phrase(0x3d);
+			if (!(Util.legalIdent(s))) {
+				throw new CompilationException("Illegal identifier: " + s);
+			}
+			if (Util.nondefk.contains(s)) {
+				throw new CompilationException("Reserved identifier: " + s);
+			}
 			for (Map<String, StackVar> cn : context) {
 				if (cn.containsKey(s)) {
 					throw new CompilationException("Label naming collision: label " + s + " is defined again in the same scope or an enclosing scope");
@@ -652,7 +658,7 @@ class Util {
 	static ArrayList<String> primsk = new ArrayList<String>();
 	static String[] primse = new String[]{"u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "float", "addr", "int", "sizeof"};//TODO maybe but probably not: remove the platform-dependent aliases, use a plug-in for them instead
 	static ArrayList<Integer> inpork = new ArrayList<Integer>();
-	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!', '~', '@'};
+	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!', '~', '@', '.'};
 	static ArrayList<String> nondefk = new ArrayList<String>();
 	static String[] nondefe = new String[]{"this"};
 	static ArrayList<Integer> idesk = new ArrayList<Integer>();
@@ -1621,11 +1627,11 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 		if (fieldsFinalised) {
 			throw new InternalCompilerException("Addition of fields to a field-finalised class");
 		}
-		long l = length + (((length % ((long) (t.type.size() / 8))) == 0) ? 0 : (((long) (t.type.size() / 8)) - (length % ((long) (t.type.size() / 8)))));
+		long l = length + (((length % ((long) (t.type.alignmentBits() / 8))) == 0) ? 0 : (((long) (t.type.alignmentBits() / 8)) - (length % ((long) (t.type.alignmentBits() / 8)))));
 		fields.put(nam, new StructEntry(l, t));
-		if (alignmentBytes < (t.type.size() / 8)) {
-			alignmentBytes = (t.type.size() / 8);
-		}
+		if (alignmentBytes < (t.type.alignmentBits() / 8)) {
+			alignmentBytes = (t.type.alignmentBits() / 8);
+		}	
 		length = l + (t.type.size() / 8);
 		return l;
 	}
@@ -2428,43 +2434,34 @@ class FullType {//Like Type but with possible pointing or running clauses
 		}
 		if (type instanceof Type) {
 			switch ((Type) type) {
+				case u8:
+				case s8:
 				case u16:
 				case s16:
-					if (toType.type.size() != 16) {//If both the original and casted-to types have a size of 16 bits, the binary data doesn't need to be changed
+				case u32:
+				case s32:
+					if (toType.type.floating()) {
 						throw new NotImplementedException();
+					}
+					if (toType.type.size() > type.size()) {
+						if (type.signed() && toType.type.signed()) {
+							Util.sx(type.size(), toType.type.size());
+						}
+						else {
+							Util.zx(type.size(), toType.type.size());
+						}
 					}
 					if (toType.type.addressable()) {
 						Util.warn("Cast from a non-addressable type to an addressable type");
 					}
 					break;
 				case a16:
-					if (toType.type.size() != 16) {
-						throw new NotImplementedException();
-					}
-					if (toType.type.addressable()) {
-						if (!(this.provides(toType))) {
-							Util.warn("Non-provisional cast from " + this.toString() + " to " + toType.toString());
-						}
-					}
-					break;
-				case u32:
-				case s32:
-					if (toType.type.size() != 32) {
-						throw new NotImplementedException();
-					}
-					if (toType.type.floating()) {
-						throw new NotImplementedException();
-					}
-					if (toType.type.addressable()) {
-						Util.warn("Cast from a non-addressable type to an addressable type");
-					}
-					break;
 				case a32:
-					if (toType.type.size() != 32) {
-						throw new NotImplementedException();
-					}
 					if (toType.type.floating()) {
 						throw new NotImplementedException();
+					}
+					if (toType.type.size() > type.size()) {
+							Util.zx(type.size(), toType.type.size());
 					}
 					if (toType.type.addressable()) {
 						if (!(this.provides(toType))) {
@@ -2472,7 +2469,6 @@ class FullType {//Like Type but with possible pointing or running clauses
 						}
 					}
 					break;
-				
 				default:
 					throw new NotImplementedException();
 			}
@@ -2833,6 +2829,7 @@ interface Typed {//EVERY Typed MUST have its `size()' result in a positive int b
 	void popMain() throws InternalCompilerException;
 	void popAddr() throws InternalCompilerException;
 	void toAddr() throws CompilationException, InternalCompilerException;
+	int alignmentBits();
 }
 class StructuredType implements Typed {//TODO fix `size()' returning 0 when the struct has no items conflicting with the need or the result of the call to be positive
 	Structure struct;
@@ -2868,6 +2865,9 @@ class StructuredType implements Typed {//TODO fix `size()' returning 0 when the 
 	}
 	public boolean signed() throws InternalCompilerException {
 		throw new InternalCompilerException("Requested boolean information is not applicable for a structured type");
+	}
+	public int alignmentBits() {
+		return struct.alignmentBytes * 8;
 	}
 }
 enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
@@ -3119,6 +3119,9 @@ enum Type implements Typed {//ONLY sizes of 8, 16, 32, and 64 are allowed
 				throw new InternalCompilerException("Unidentifiable or disallowed operand size and / or unidentifiable target");
 		}
 	}
+	public int alignmentBits() {
+		return size();
+	}
 }
 abstract class Item {
 }
@@ -3365,6 +3368,9 @@ class GlobalVarDecl implements Compilable {
 			Compiler.rwdata.print(".byte");
 			for (; b != 0; b--) {
 				Compiler.rwdata.print(" 0x00");
+				if (b != 1) {
+					Compiler.rwdata.print(" ,");
+				}
 			}
 			Compiler.rwdata.println();
 		}
@@ -3395,11 +3401,9 @@ class RawText implements Doable {
 		int i;
 		if (tex) {
 			Compiler.texback.write(dat.array(), i = dat.arrayOffset(), i + dat.position());
-			dat.position();
 		}
 		else {
 			Compiler.rwdatback.write(dat.array(), i = dat.arrayOffset(), i + dat.position());
-			dat.position();
 		}
 	}
 }
@@ -3502,8 +3506,12 @@ class Operator extends Item {
 	static final Operator EQ = new Operator(false, '=');//("==") Equality
 	static final Operator GTEQ = new Operator(false, 'g');//(">=") Greater than or equal to
 	static final Operator LTEQ = new Operator(false, 'l');//("<=") Less than or equal to
+	static final Operator LNEG = new Operator(true, '!');//("!") Logical negation
+	static final Operator NEQ = new Operator(false, 'N');//("!=") Inequality
+	static final Operator MSHL = new Operator(false, '(');//("<<|") Bit-wise zero-filling left shift
 	static String[] eops = new String[]{"add", "sub", "cmp"};
-	static String[] cond = new String[]{"z", "a", "ae", "b", "be", "z", "g", "ge", "l", "le"};
+	static String[] cond = new String[]{"z", "nz", "a", "ae", "b", "be", "z", "nz", "g", "ge", "l", "le"};
+	static String[] rsh = new String[]{"shr", "sar"};
 	static final Operator CMP = new Operator(false, 'C');// Comparison, for internal use
 	final boolean unary;
 	final int id;
@@ -3556,6 +3564,9 @@ class Operator extends Item {
 			case ('-'):
 				fn++;
 			case ('+'):
+				if (LHO.type.floating() || RHO.type.type.floating()) {
+					throw new NotImplementedException();
+				}
 				switch (LHO.type.size()) {
 					case (64):
 						throw new NotImplementedException();
@@ -3575,6 +3586,15 @@ class Operator extends Item {
 										Compiler.text.print(eops[fn]);
 										Compiler.text.println("l %ebx,%eax");//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
 										if ((LHO.type == Type.a32) || (RHtyp.type == Type.a32)) {
+											if (LHO.type == RHtyp.type) {
+												return FullType.a32;
+											}
+											if ((LHO.gives == null) != (LHO.runsWith == null)) {
+												return LHO;
+											}
+											if ((RHtyp.gives == null) != (RHtyp.runsWith == null)) {
+												return RHtyp;
+											}
 											return FullType.a32;
 										}
 										else if ((LHO.type == Type.s32) || (RHtyp.type == Type.s32)) {
@@ -3612,7 +3632,16 @@ class Operator extends Item {
 								Compiler.text.print(eops[fn]);
 								Compiler.text.println("w %bx,%ax");//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
 								if ((LHO.type == Type.a16) || (RHtyp.type == Type.a16)) {
-									return FullType.a16;//TODO keep pointing clauses but not running clauses
+									if (LHO.type == RHtyp.type) {
+										return FullType.a16;
+									}
+									if ((LHO.gives == null) != (LHO.runsWith == null)) {
+										return LHO;
+									}
+									if ((RHtyp.gives == null) != (RHtyp.runsWith == null)) {
+										return RHtyp;
+									}
+									return FullType.a16;
 								}
 								else if ((LHO.type == Type.s16) || (RHtyp.type == Type.s16)) {
 									return FullType.s16;
@@ -3631,11 +3660,10 @@ class Operator extends Item {
 					case (8)://u8 or s8
 						switch (RHtyp.type.size()) {
 							case (64):
-								throw new NotImplementedException();
 							case (32):
-								throw new NotImplementedException();
 							case (16):
-								throw new NotImplementedException();
+								LHO.cast(RHtyp);
+								return this.apply(RHtyp, RHO);
 							case (8):
 								LHO.type.pushMain();
 								RHO.bring();
@@ -3850,18 +3878,60 @@ class Operator extends Item {
 				fn++;
 			case ('>'):
 				fn++;
+			case ('N'):
+				fn++;
 			case ('='):
-				if (LHO.type.signed() != RHO.type.type.signed()) {
-					throw new NotImplementedException();
-				}
-				if (LHO.type.signed()) {
-					fn += 5;
+				if (LHO.type.signed() && RHO.type.type.signed()) {//TODO proper casting when different sizes
+					fn += 6;
 				}
 				CMP.apply(LHO, RHO);
 				Compiler.text.print("set");
 				Compiler.text.print(cond[fn]);
 				Compiler.text.println(" %al");
 				return FullType.u8;
+			case (')'):
+				fn++;
+			case (']'):
+				LHO.type.pushMain();
+				RHO.bring();
+				Compiler.text.println("movb %al,%cl");
+				LHO.type.popMain();
+				switch (LHO.type.size()) {
+					case (8):
+						Compiler.text.print(rsh[fn]);
+						Compiler.text.println("b %cl,%al");
+						break;
+					case (16):
+						Compiler.text.print(rsh[fn]);
+						Compiler.text.println("w %cl,%ax");
+						break;
+					case (32):
+						if (Compiler.mach < 1) {
+							throw new NotImplementedException();//no shrd on CPUs before the 80386
+						}
+						else {//else since the NotImplementedException will be replaced with an implementation
+							Compiler.text.print(rsh[fn]);
+							Compiler.text.print("l %cl,%eax");
+						}
+						break;
+					case (64):
+						if (Compiler.mach < 1) {
+							throw new NotImplementedException();//no shrd on CPUs before the 80386
+						}
+						else if (Compiler.mach < 2){//else since the NotImplementedException will be replaced with an implementation
+							Compiler.text.println("shrdl %cl,%ebx,%eax");
+							Compiler.text.print(rsh[fn]);
+							Compiler.text.println("l %cl,%ebx");
+						}
+						else {
+							Compiler.text.print(rsh[fn]);
+							Compiler.text.println("q %cl,%rax");
+						}
+						break;
+					default:
+						throw new InternalCompilerException();
+				}
+				return LHO;
 			default:
 				throw new NotImplementedException();
 		}
@@ -4516,6 +4586,17 @@ class Expression extends Value {
 							}//Not an expression, function call, symbol, or literal
 							int i = Util.read();
 							switch (i) {
+								case ('.'):
+									/*Util.unread(ir);
+									Value ra = (Value) last;
+									ex.skim(ra);
+									Expression en = new Expression();
+									en.add(ra);
+									en.add(new Casting(raw, ra.type, fto));
+									en.finalised = true;
+									en.type = fto;
+									ex.add(last = en);*/
+									throw new NotImplementedException();
 								case ('+'):
 									ex.add(last = Operator.ADD);
 									break;
@@ -4568,6 +4649,18 @@ class Expression extends Value {
 									if ((i = Util.read()) == '=') {
 										ex.add(last = Operator.GTEQ);
 									}
+									else if (i == '>') {
+										if ((i = Util.read()) == '>') {
+											ex.add(last = Operator.ROR);
+										}
+										else if (i == '|') {
+											ex.add(last = Operator.MSHR);
+										}
+										else {
+											Util.unread(i);
+											ex.add(last = Operator.SHR);
+										}
+									}
 									else {
 										Util.unread(i);
 										ex.add(last = Operator.GT);
@@ -4580,6 +4673,15 @@ class Expression extends Value {
 									else {
 										Util.unread(i);
 										ex.add(last = Operator.LT);
+									}
+									break;
+								case ('!'):
+									if ((i = Util.read()) == '=') {
+										ex.add(last = Operator.NEQ);
+									}
+									else {
+										Util.unread(i);
+										ex.add(last = Operator.LNEG);
 									}
 									break;
 								default:

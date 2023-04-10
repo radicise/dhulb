@@ -21,3 +21,14 @@
 #else
 	#error "Unsupported operand size
 #endif
+int strcmp(*u8 a, *u8 b) {
+	uint t = strlen(a);
+	sint g = t - strlen(b);
+	if (g > 0) {
+		return 1;
+	}
+	if (g) {
+		return (0 - 1);
+	}
+	return bcmp(a, b, t);
+}

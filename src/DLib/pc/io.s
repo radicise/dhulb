@@ -23,8 +23,8 @@ cursor_pos_y:/*dhulbDoc-v200:globalvar;u8 cursor_pos_y;*/
 print_format:/*dhulbDoc-v200:globalvar;u8 print_format;*/
 .globl print_format
 	.byte 0x07
-print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
-.globl print
+fbprint:/*dhulbDoc-v200:function;u16 fbprint(a16*u8, u16) call16;*/
+.globl fbprint
 	pushw %bp
 	movw %sp,%bp
 	pushw %si
@@ -54,19 +54,21 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	xorb %dl,%dl
 	movb print_format(,1),%ah
 	xorb $0x77,%es:1(%di)#TODO make optional
-	print__read_char:
+	fbprint__read_char:
 	lodsb
+	/*
 	testb %al,%al
-	jz print__end
+	jz fbprint__end
+	*/#TODO perhaps make this optional or have a different function, which allows this to take place
 	incw %dx
 	cmpb $0x0a,%al
-	jz print__lf
+	jz fbprint__lf
 	cmpb $0x0d,%al
-	jz print__cr
+	jz fbprint__cr
 	stosw
-	print__cont:
+	fbprint__cont:
 	cmpw %di,%bx
-	ja print__no_scroll
+	ja fbprint__no_scroll
 	pushw %si
 	pushw %di
 	movw %es,%si
@@ -90,9 +92,9 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	popw %di
 	popw %si
 	subw %bp,%di
-	print__no_scroll:
-	loop print__read_char
-	print__end:
+	fbprint__no_scroll:
+	loop fbprint__read_char
+	fbprint__end:
 	xorb $0x77,%es:1(%di)#TODO make optional
 	movw %di,%ax
 	shrw %ax
@@ -106,10 +108,10 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	popw %si
 	popw %bp
 	retw
-	print__lf:
+	fbprint__lf:
 	addw %bp,%di
-	/**/#TODO optional `jmp print__cont'
-	print__cr:
+	/**/#TODO optional `jmp fbprint__cont'
+	fbprint__cr:
 	pushw %ax
 	pushw %dx
 	movw %di,%ax
@@ -118,7 +120,7 @@ print:/*dhulbDoc-v200:function;u16 print(a16*u8, u16) call16;*/
 	subw %dx,%di
 	popw %dx
 	popw %ax
-	jmp print__cont
+	jmp fbprint__cont
 readScancode:/*dhulbDoc-v201:function;u16 readScancode() call16;*/
 .globl readScancode
 	xorw %ax,%ax

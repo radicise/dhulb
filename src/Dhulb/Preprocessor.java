@@ -71,6 +71,9 @@ public class Preprocessor {// takes file stream and the directory path where the
         int cbyte = reader.read();
         boolean test = true;
         while (cbyte != -1) {
+            if (cbyte == (-1)) {
+		    break;
+	    }
             boolean startIfdefTypeSkip = false;
             if (cbyte == '"') {
                 output.write(cbyte);
@@ -113,7 +116,13 @@ public class Preprocessor {// takes file stream and the directory path where the
                     while (cbyte != '"') {
                         output.write(cbyte);
                         cbyte = reader.read();
+			if (cbyte == (-1)) {
+				break;
+			}
                     }
+		    if (cbyte == (-1)) {
+			    break;
+		    }
                     output.write(cbyte);
                     cbyte = reader.read();
                 }
@@ -154,14 +163,19 @@ public class Preprocessor {// takes file stream and the directory path where the
                     output.write(tbyte);
                     cbyte = reader.read();
                     while (cbyte != -1) {
-                        output.write(cbyte);
+                        output.write(cbyte);//TODO support zero-length blocks
                         cbyte = reader.read();
                         if (cbyte == tbyte) {
-                            if (cbyte == '/') {
+                            if ((cbyte = reader.read()) == '/') {
+				output.write(tbyte);
                                 output.write(cbyte);
                                 cbyte = reader.read();
                                 break;
                             }
+			    if (cbyte == (-1)) {
+			        break;
+			    }
+			    output.write(tbyte);
                             continue;
                         }
                     }

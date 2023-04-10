@@ -1,0 +1,4 @@
+# Preprocessor variable definitions for Stall as a target
+SYSTEM_STALL_SYS16=000000001
+OPERAND_BITS=16
+CALL_BITS=16

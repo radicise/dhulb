@@ -1,6 +1,7 @@
 .text
 strlen:/*dhulbDoc-v300:function;u16 strlen(a16*u8) call16;*/
 .globl strlen
+/*Resultant legth does not include the null terminator*/
 pushw %bp
 movw %sp,%bp
 pushw %di
@@ -12,13 +13,13 @@ movw %ax,%es
 xorb %al,%al
 repnz
 scasb
-notw %ecx
-decw %ecx
+notw %cx
+decw %cx
 movw %cx,%ax
 popw %di
 popw %bp
 retw
-bcmp:/*dhulbDoc-v300:function;s8 bcmp(a32*u8, a32*u8, u32) call32*/
+bcmp:/*dhulbDoc-v300:function;s8 bcmp(a16*u8, a16*u8, u16) call16*/
 .globl bcmp
 movw %ds,%ax
 movw %ax,%es

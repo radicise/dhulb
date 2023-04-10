@@ -1,0 +1,21 @@
+Type	16-bit	32-bit	64-bit
+int	s16	s32	s64
+sint	s16	s32	s64
+uint	u16	u32	u64
+addr	a16	a32	a64
+
+
+Type	Signed	Bits	Addressable	Float
+u8	No	8	No		No
+s8	Yes	8	No		No
+u16	No	16	No		No
+s16	Yes	16	No		No
+u32	No	32	No		No
+s32	Yes	32	No		No
+u64	No	64	No		No
+s64	Yes	64	No		No
+a16	No	16	Yes		No
+a32	No	32	Yes		No
+a64	No	64	Yes		No
+f32	Float	32	No		Yes
+f64	Float	64	No		Yes

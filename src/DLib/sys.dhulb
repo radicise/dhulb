@@ -2,6 +2,20 @@
  * sys.dhulb
  * Created on 2023-01-24
  */
+/*
+ * Defines:
+ * sint exit();
+ * sint STDIN_FILENO;
+ * sint STDOUT_FILENO;
+ * sint read(sint, addr, uint);
+ * sint write(sint, addr, uint);
+ * sint bread(sint);
+ * sint bwrite(sint, u8);
+ * addr malloc(u32);
+ * sint free(addr);
+ * uint rand(uint);
+ *
+ */
 #ifdef KERNEL_LINUX_I386
 	#if OPERAND_BITS >= 32
 		#if CALL_BITS == 32
@@ -12,9 +26,15 @@
 	#else
 		#error "Unsupported operand size for the target kernel"
 	#endif
-#elifdef NOKERNEL
-	#error "A target kernel is needed"
 #else
-	#error "Unsupported target kernel"
+	#ifdef NOSYS
+		#error "A target system is needed"
+	#else
+		#ifdef SYSTEM_STALL_SYS16
+			#import "stall/sys.dhulb"
+		#else
+			#error "Unsupported target system"
+		#endif
+	#endif
 #endif
 

@@ -1,4 +1,5 @@
-print:/*dhulbDoc-v300:function;s32 print(a32*u8) call32;*/
+/*
+print:/*dhulbDoc-v300:function;s32 print(a32*u8) call32;[ASTERISK]/
 .globl print
 pushl %edi
 movl 8(%esp),%edi
@@ -19,3 +20,4 @@ calll write
 addl $0x0c,%esp
 popl %edi
 retl
+*/
