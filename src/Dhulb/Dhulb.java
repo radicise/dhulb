@@ -1859,9 +1859,9 @@ class StructEntry implements Comparable<StructEntry> {
 		}
 		return this == obj;
 	}
-	public int compareTo(StructEntry to) {
+	public int compareTo(StructEntry to) {//make sure that there is never a StructEntry with offset of the minimum long value
 		long diff = offset - to.offset;
-		return (diff == 0L) ? 0 : ((diff > 0L) ? 1 : 0);
+		return (diff == 0L) ? 0 : ((diff > 0L) ? 1 : (-1));
 	}
 }
 class Function implements Stacked, Compilable {//TODO maybe warn when the code may reach the end of the function without returning
@@ -3484,6 +3484,77 @@ class Casting extends Operator {
 		return to;
 	}
 }
+class DotOperator extends Operator {
+	int structAlign;//in bytes
+	FullType field;//null if a function
+	long offset;
+	String funcName;
+	DotOperator(int stAlgn, FullType fld, long off, String fn) {
+		super(true, '.');
+		structAlign = stAlgn;
+		field = fld;
+		offset = off;
+		funcName = fn;
+	}
+	static DotOperator from(Structure st) throws CompilationException, InternalCompilerException, IOException {
+		String s = Util.phrase(0x3d);
+		StructEntry g = st.fields.get(s);
+		if (g == null) {
+			Function f = st.funcs.get(s);
+			if (f == null) {
+				throw new CompilationException("Unknown field or function name following dot operator for class " + st.name + ": " + s);
+			}
+			return new DotOperator(st.alignmentBytes, null, 0, "___structfunc__" + Util.escape(new String[]{st.name, s}));
+		}
+		return new DotOperator(st.alignmentBytes, g.type, g.offset, null);
+	}
+	FullType apply(FullType typ) throws NotImplementedException, SizeNotFitException, InternalCompilerException {
+		if (field == null) {
+			throw new NotImplementedException();
+		}
+		if (offset == 0) {
+			return new FullType(typ.type, field);
+		}
+		if (offset == 1) {
+			switch (typ.type.size()) {
+				case (16):
+					Compiler.text.println("incw %ax");
+					break;
+				case (32):
+					if (Compiler.mach < 1) {
+						throw new NotImplementedException();
+					}
+					Compiler.text.println("incl %eax");
+					break;
+				case (64):
+					throw new NotImplementedException();
+				default:
+					throw new InternalCompilerException();
+			}
+			return new FullType(typ.type, field);
+		}
+		switch (typ.type.size()) {
+			case (16):
+				Compiler.text.print("addw $");
+				Compiler.text.print(Util.signedRestrict(offset, 16));
+				Compiler.text.println(",%ax");
+				break;
+			case (32):
+				if (Compiler.mach < 1) {
+					throw new NotImplementedException();
+				}
+				Compiler.text.print("addl $");
+				Compiler.text.print(Util.signedRestrict(offset, 33));
+				Compiler.text.println(",%eax");
+				break;
+			case (64):
+				throw new NotImplementedException();
+			default:
+				throw new InternalCompilerException();
+		}
+		return new FullType(typ.type, field);
+	}
+}
 class Operator extends Item {
 	static final Operator ADD = new Operator(false, '+');//("+") Arithmetic addition
 	static final Operator SUB = new Operator(false, '-');//("-") Arithmetic subtraction
@@ -4587,16 +4658,27 @@ class Expression extends Value {
 							int i = Util.read();
 							switch (i) {
 								case ('.'):
-									/*Util.unread(ir);
-									Value ra = (Value) last;
-									ex.skim(ra);
+									if (!(last instanceof Value)) {
+										throw new CompilationException("Attempt to use the dot operator on a non-value");
+									}
+									if (!(((Value) last).type.type.addressable())) {
+										throw new CompilationException("Attempt to use the dot operator on a non-addressable type");
+									}
+									if ((((Value) last).type.gives == null) || (((Value) last).type.runsWith != null)) {
+										throw new CompilationException("Attempt to use the dot operator on an address that does not have a pointing clause");
+									}
+									if (!(((Value) last).type.gives.type instanceof StructuredType)) {
+										throw new CompilationException("Attempt to use the dot operator on an address with a pointing clause for a non-structural type");
+									}
 									Expression en = new Expression();
-									en.add(ra);
-									en.add(new Casting(raw, ra.type, fto));
+									en.add(last);
+									DotOperator dop = DotOperator.from(((StructuredType) (((Value) last).type.gives.type)).struct);
+									en.add(dop);
 									en.finalised = true;
-									en.type = fto;
-									ex.add(last = en);*/
-									throw new NotImplementedException();
+									en.type = new FullType(((Value) last).type.type, dop.field);
+									ex.skim(last);
+									ex.add(last = en);
+									break;
 								case ('+'):
 									ex.add(last = Operator.ADD);
 									break;
