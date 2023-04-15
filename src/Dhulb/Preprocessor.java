@@ -211,7 +211,7 @@ public class Preprocessor {// takes file stream and the directory path where the
                 try {
                     output.write(Integer.toString(defined.get(sb.toString())).getBytes());
                 } catch (NullPointerException e) {
-                    throw new Exception("Attempted to insert the value of a preprocessor variable that was not defined");
+                    throw new Exception("Attempted to insert the value of a preprocessor variable that was not defined: " + sb.toString());
                 }
                 cbyte = reader.read();
                 continue;

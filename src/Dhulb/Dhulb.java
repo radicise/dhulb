@@ -87,6 +87,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static Type defSInt = Type.s16;
 	public static Type def754 = Type.f32;
 	public static Type defAdr = Type.a16;
+	public static Type defOff = Type.s16;
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
@@ -105,6 +106,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static long ver_minor = (numericVersion / 10000L) % 100L;// do not make final
 	public static long ver_inframinor = (numericVersion / 100L) % 100L;// do not make final
 	public static long ver_subinframinor = numericVersion % 100L;// do not make final
+	public static Literal nul;
 	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		buildTime = System.currentTimeMillis() / 1000L;
 		try {//TODO implement bulk memory movement syntax
@@ -247,6 +249,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			defSInt = Type.s16;
 			def754 = Type.f32;
 			defAdr = Type.a16;
+			defOff = Type.s16;
 		}
 		else if (madec == 32) {
 			Compiler.text.println(".code32");
@@ -256,6 +259,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			defSInt = Type.s32;
 			def754 = Type.f32;
 			defAdr = Type.a32;
+			defOff = Type.s32;
 		}
 		else if (madec == 64) {
 			Compiler.text.println(".code64");
@@ -265,11 +269,13 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			defSInt = Type.s64;
 			def754 = Type.f64;
 			defAdr = Type.a64;
+			defOff = Type.s64;
 		}
 		else {
 			System.err.print(Dhulb.invocation);
 			System.exit(9);
 		}
+		nul = new Literal(FullType.of(defAdr), 0L);
 		try {
 			while (true) {
 				getCompilable(program, false, null);
@@ -654,11 +660,11 @@ class Util {
 	static ArrayList<String> boolitk = new ArrayList<String>();
 	static String[] boolite = new String[]{"false", "true"};
 	static ArrayList<String> nulitk = new ArrayList<String>();
-	static String[] nulite = new String[]{"null", "NULL"};
+	static String[] nulite = new String[]{"null"};
 	static ArrayList<String> primsk = new ArrayList<String>();
 	static String[] primse = new String[]{"u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "float", "addr", "int", "sizeof"};//TODO maybe but probably not: remove the platform-dependent aliases, use a plug-in for them instead
 	static ArrayList<Integer> inpork = new ArrayList<Integer>();
-	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!', '~', '@', '.'};
+	static int[] inpore = new int[]{'+', '-', '=', '/', '<', '>', '*', '%', ',', '$', '!', '~', '@', '.', '&', '|', '^'};
 	static ArrayList<String> nondefk = new ArrayList<String>();
 	static String[] nondefe = new String[]{"this"};
 	static ArrayList<Integer> idesk = new ArrayList<Integer>();
@@ -2214,6 +2220,10 @@ class FullType {//Like Type but with possible pointing or running clauses
 	static FullType from() throws UnidentifiableTypeException, CompilationException, InternalCompilerException, IOException {//Throws UnidentifiableTypeText when the phrase(0x29) call yields a string which does not correspond to any valid type or any valid type shorthand notation
 		int g = Util.read();
 		if (g == '*') {
+			if (!(Compiler.typeNicksApplicable)) {
+				Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+				throw new CompilationException("Illegal use of a platform-dependent type");
+			}
 			Util.skipWhite();
 			try {
 				return new FullType(Compiler.defAdr, from());
@@ -2233,28 +2243,28 @@ class FullType {//Like Type but with possible pointing or running clauses
 				if (s.equals("uint")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Illegal use of a platform-dependent type");
 					}
 					typ = Compiler.defUInt;
 				}
 				else if (s.equals("sint") || s.equals("int")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Illegal use of a platform-dependent type");
 					}
 					typ = Compiler.defSInt;
 				}
 				else if (s.equals("float")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Illegal use of a platform-dependent type");
 					}
 					typ = Compiler.def754;
 				}
 				else if (s.equals("addr")) {
 					if (!(Compiler.typeNicksApplicable)) {
 						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type name");
+						throw new CompilationException("Illegal use of a platform-dependent type");
 					}
 					typ = Compiler.defAdr;
 				}
@@ -3580,7 +3590,7 @@ class Operator extends Item {
 	static final Operator LNEG = new Operator(true, '!');//("!") Logical negation
 	static final Operator NEQ = new Operator(false, 'N');//("!=") Inequality
 	static final Operator MSHL = new Operator(false, '(');//("<<|") Bit-wise zero-filling left shift
-	static String[] eops = new String[]{"add", "sub", "cmp"};
+	static String[] eops = new String[]{"add", "sub", "cmp", "and", "or", "xor"};
 	static String[] cond = new String[]{"z", "nz", "a", "ae", "b", "be", "z", "nz", "g", "ge", "l", "le"};
 	static String[] rsh = new String[]{"shr", "sar"};
 	static final Operator CMP = new Operator(false, 'C');// Comparison, for internal use
@@ -3629,7 +3639,13 @@ class Operator extends Item {
 		}
 		FullType RHtyp = RHO.type;
 		int fn = 0;
-		switch (id) {
+			switch (id) {
+			case ('^'):
+				fn++;
+			case ('|'):
+				fn++;
+			case ('&'):
+				fn++;
 			case ('C'):
 				fn++;
 			case ('-'):
@@ -4355,6 +4371,21 @@ class Expression extends Value {
 		items = new ArrayList<Item>();
 		finalised = false;
 	}
+	static Expression from(Item[] ites) throws CompilationException, InternalCompilerException {
+		Expression en = new Expression();
+		for (Item ite : ites) {
+			if (ite == null) {
+				continue;
+			}
+			en.items.add(ite);
+		}
+		en.finalised = true;
+		PrintStream pstemp = Compiler.text;
+		Compiler.text = Compiler.nowhere;
+		en.type = en.bring();//TODO maybe un-bodge
+		Compiler.text = pstemp;
+		return en;
+	}
 	void add(Item i) throws InternalCompilerException {//Should not throw NumberFormatException
 		if (finalised) {
 			throw new InternalCompilerException("Modification of finalised expression");
@@ -4547,6 +4578,10 @@ class Expression extends Value {
 				Util.unread(tg);
 				String s = Util.phrase(0x2f);//do NOT change from 0x2f without updating the delimiter likewise for the cast / conversion chain checking for when performing a cast / conversion
 				Literal lit;
+				if (Util.nulitk.contains(s)) {
+					ex.add(last = Compiler.nul);
+					continue;
+				}
 				if (Util.legalIdent(s)) {
 					Util.skipWhite();
 					StackVar sv = null;
@@ -4657,6 +4692,27 @@ class Expression extends Value {
 							}//Not an expression, function call, symbol, or literal
 							int i = Util.read();
 							switch (i) {
+								case ('['):
+									if (!(last instanceof Value)) {
+										throw new CompilationException("Attempt to use the indexing operator on a non-value");
+									}
+									if (!(((Value) last).type.type.addressable())) {
+										throw new CompilationException("Attempt to use the indexing operator on a non-addressable type");
+									}
+									Expression ej = Expression.from(']');
+									ej = Expression.from(new Item[]{last, Operator.ADD, Expression.from(new Item[]{Expression.from(new Item[]{ej, new Casting(false, ej.type, FullType.of(Compiler.defOff))}), (((((Value) last).type.gives == null) == (((Value) last).type.runsWith == null)) && (((Value) last).type.gives.type.size() != 8)) ? null : Operator.MUL, (((((Value) last).type.gives == null) == (((Value) last).type.runsWith == null)) && (((Value) last).type.gives.type.size() != 8)) ? null : (new Literal(FullType.of(Compiler.defOff), (long) (((((Value) last).type.gives == null) == (((Value) last).type.runsWith == null)) ? 1 : (((Value) last).type.gives.type.size() / 8))))})});
+									ex.skim(last);
+									ex.add(last = ej);
+									break;
+								case ('&'):
+									ex.add(last = Operator.AND);
+									break;
+								case ('|'):
+									ex.add(last = Operator.OR);
+									break;
+								case ('^'):
+									ex.add(last = Operator.XOR);
+									break;
 								case ('.'):
 									if (!(last instanceof Value)) {
 										throw new CompilationException("Attempt to use the dot operator on a non-value");
