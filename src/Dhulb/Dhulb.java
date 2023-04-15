@@ -152,22 +152,25 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					System.err.println();
 					StringBuilder sb = new StringBuilder();
 					int pos = Util.viewStart + 1;
+					if (pos == Util.viewLen) {
+						pos = 0;
+					}
 					int where = 0;
 					while (pos != Util.viewPos) {
+						pos++;
+						where++;
 						if (pos == Util.viewLen) {
 							pos = 0;
 						}
 						sb.appendCodePoint(Util.view[pos]);
-						pos++;
-						where++;
 					}
 					try {
 						while (pos < Util.viewEnd) {
+							pos++;
 							if (pos == Util.viewLen) {
 								pos = 0;
 							}
 							sb.appendCodePoint(Util.read());
-							pos++;
 						}
 						noViewErrors = true;
 						for (pos = 0; pos < Util.viewLen; pos++) {
