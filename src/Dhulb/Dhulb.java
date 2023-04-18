@@ -156,11 +156,14 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						pos = 0;
 					}
 					int where = 0;
-					while (pos != Util.viewPos) {
+					while (true) {
 						pos++;
 						where++;
 						if (pos == Util.viewLen) {
 							pos = 0;
+						}
+						if (pos == Util.viewPos) {
+							break;
 						}
 						sb.appendCodePoint(Util.view[pos]);
 					}
