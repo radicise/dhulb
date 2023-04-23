@@ -107,6 +107,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static long ver_inframinor = (numericVersion / 100L) % 100L;// do not make final
 	public static long ver_subinframinor = numericVersion % 100L;// do not make final
 	public static Literal nul;
+	public static TreeMap<String, Typed> aliasesTypes = new TreeMap<String, Typed>();
+	public static TreeMap<String, FullType> aliasesFullTypes = new TreeMap<String, FullType>();
 	public static void mai(String[] argv) throws IOException, InternalCompilerException {//TODO change operator output behaviour to match CPU instruction output sizes
 		buildTime = System.currentTimeMillis() / 1000L;
 		try {//TODO implement bulk memory movement syntax
@@ -423,12 +425,49 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			if (s.equals("class") || s.equals("struct")) {
 				Util.skipWhite();
 				String naam = Util.phrase(0x3d);
-				if (Compiler.structs.containsKey(naam)) {
-					throw new CompilationException("Duplicate class name: " + naam);
+				if (!(Util.legalIdent(naam))) {
+					throw new CompilationException("Illegal identifier for class: " + naam);
+				}
+				if (Util.nondefk.contains(naam)) {
+					throw new CompilationException("Reserved identifier for class: " + naam);
 				}
 				Structure st = Structure.from(naam);
 				Compiler.structs.put(naam, st);
 				list.add(st);
+			}
+			else if (s.equals("typealias") || s.equals("typefullalias")) {
+				boolean full = s.equals("typefullalias");
+				Util.skipWhite();
+				s = Util.phrase(0x3d);
+				if (!(Util.legalIdent(s))) {
+					throw new CompilationException("Illegal identifier for type alias: " + s);
+				}
+				else if (Util.nondefk.contains(s)) {
+					throw new CompilationException("Reserved identifier for type alias: " + s);
+				}
+				else if (Compiler.HVars.containsKey(s)) {
+					throw new CompilationException("Illegal identifier for type alias, already exists as a global variable: " + s);
+				}
+				else if (Compiler.HVars.containsKey(s)) {
+					throw new CompilationException("Illegal identifier for type alias, already exists as a global function: " + s);
+				}
+				Util.skipWhite();
+				try {
+					if (full) {
+						Compiler.aliasesFullTypes.put(s, FullType.from());
+					}
+					else {
+						Compiler.aliasesTypes.put(s, Util.typedOfName(Util.phrase(0x2d)));
+					}
+				}
+				catch (UnidentifiableTypeException E) {
+					throw new CompilationException("Unidentifiable type: " + E.verbatim);//TODO set E as the cause
+				}
+				Util.skipWhite();
+				i = Util.read();
+				if (i != ';') {
+					throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
+				}
 			}
 			else if (Util.legalIdent(s)) {
 				Storage st = null;
@@ -552,14 +591,12 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 						e.type.toAddr();
 						switch (Compiler.CALL_SIZE_BITS) {
 							case (16):
-								Compiler.text.println("jmpl *%eax");
-								break;
+								throw new NotImplementedException();
 							case (32):
 								Compiler.text.println("jmpl *%eax");
 								break;
 							case (64):
-								Compiler.text.println("jmpl *%eax");
-								break;
+								throw new NotImplementedException();
 							default:
 								throw new InternalCompilerException("Illegal call size");
 						}
@@ -660,7 +697,7 @@ class Util {
 	static long sen = 0;
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct", "typealias", "typefullalias"};
 	static ArrayList<String> accesk = new ArrayList<String>();
 	static String[] accese = new String[]{};
 	static ArrayList<String> boolitk = new ArrayList<String>();
@@ -744,6 +781,57 @@ class Util {
 //				throw new InternalCompilerException("Illegal operand size");
 //		}
 //	}
+	static Typed typedOfName(String s) throws CompilationException, UnidentifiableTypeException, InternalCompilerException {
+		if (Compiler.aliasesTypes.containsKey(s)) {
+			return Compiler.aliasesTypes.get(s);
+		}
+		else if (Util.primsk.contains(s)) {
+			try {
+				return Type.valueOf(s);
+			}
+			catch (IllegalArgumentException E) {
+				if (s.equals("uint")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type");
+					}
+					return Compiler.defUInt;
+				}
+				else if (s.equals("sint") || s.equals("int")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type");
+					}
+					return Compiler.defSInt;
+				}
+				else if (s.equals("float")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type");
+					}
+					return Compiler.def754;
+				}
+				else if (s.equals("addr")) {
+					if (!(Compiler.typeNicksApplicable)) {
+						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
+						throw new CompilationException("Illegal use of a platform-dependent type");
+					}
+					return Compiler.defAdr;
+				}
+				else {
+					throw new InternalCompilerException("Type cannot be found: " + s);
+				}
+			}
+		}
+		else {
+			if (Compiler.structs.containsKey(s)) {
+				return Compiler.structs.get(s).type;
+			}
+			else {
+				throw new UnidentifiableTypeException(s);
+			}
+		}
+	}
 	static String reserve() {
 		return "___dhulbres__" + buildNam + "__" + Long.toString(sen++);
 	}
@@ -1236,7 +1324,7 @@ class Util {
 		if (s.length() == 0) {
 			return false;
 		}
-		if ((keywork.contains(s)) || (boolitk.contains(s)) || (nulitk.contains(s))) {
+		if ((keywork.contains(s)) || (boolitk.contains(s)) || (nulitk.contains(s)) || (Compiler.structs.containsKey(s)) || (Compiler.aliasesFullTypes.containsKey(s)) || (Compiler.aliasesTypes.containsKey(s))) {
 			return false;
 		}
 		int c = 0;
@@ -2240,53 +2328,10 @@ class FullType {//Like Type but with possible pointing or running clauses
 		}
 		Util.unread(g);
 		String s = Util.phrase(0x2d);
-		Typed typ;
-		if (Util.primsk.contains(s)) {
-			try {
-				typ = Type.valueOf(s);
-			}
-			catch (IllegalArgumentException E) {
-				if (s.equals("uint")) {
-					if (!(Compiler.typeNicksApplicable)) {
-						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type");
-					}
-					typ = Compiler.defUInt;
-				}
-				else if (s.equals("sint") || s.equals("int")) {
-					if (!(Compiler.typeNicksApplicable)) {
-						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type");
-					}
-					typ = Compiler.defSInt;
-				}
-				else if (s.equals("float")) {
-					if (!(Compiler.typeNicksApplicable)) {
-						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type");
-					}
-					typ = Compiler.def754;
-				}
-				else if (s.equals("addr")) {
-					if (!(Compiler.typeNicksApplicable)) {
-						Compiler.typeNicksApplicable = Compiler.allowTypeNicks;
-						throw new CompilationException("Illegal use of a platform-dependent type");
-					}
-					typ = Compiler.defAdr;
-				}
-				else {
-					throw new InternalCompilerException("Type cannot be found: " + s);
-				}
-			}
+		if (Compiler.aliasesFullTypes.containsKey(s)) {
+			return Compiler.aliasesFullTypes.get(s);
 		}
-		else {
-			if (Compiler.structs.containsKey(s)) {
-				typ = Compiler.structs.get(s).type;
-			}
-			else {
-				throw new UnidentifiableTypeException(s);
-			}
-		}
+		Typed typ = Util.typedOfName(s);
 		try {
 			Util.skipWhite();
 			int ci = Util.read();
