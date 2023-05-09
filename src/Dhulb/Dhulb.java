@@ -1649,10 +1649,10 @@ class IfThen extends Conditional {
 			if (i != j) {
 				nsymb = Util.reserve();
 				if (poss.get(i)) {
-					Compiler.text.println("jnz " + nsymb);
+					Compiler.text.println("jz " + nsymb);
 				}
 				else {
-					Compiler.text.println("jz " + nsymb);
+					Compiler.text.println("jnz " + nsymb);
 				}
 				thens.get(i).compile();
 				Compiler.text.println("jmp " + esymb);
