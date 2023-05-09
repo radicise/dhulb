@@ -14,45 +14,38 @@ set_video_mode:/*dhulbDoc-v200:function;s16 set_video_mode(u8) call16;*/
 	movb $0x01,%al
 	popw %bp
 	retw
-cursor_pos_x:/*dhulbDoc-v200:globalvar;u8 cursor_pos_x;*/
-.globl cursor_pos_x
-	.byte 0x00
-cursor_pos_y:/*dhulbDoc-v200:globalvar;u8 cursor_pos_y;*/
-.globl cursor_pos_y
-	.byte 0x00
-print_format:/*dhulbDoc-v200:globalvar;u8 print_format;*/
-.globl print_format
-	.byte 0x07
-fbprint:/*dhulbDoc-v200:function;u16 fbprint(a16*u8, u16) call16;*/
+fbprint:/*dhulbDoc-v300:function;u16 fbprint(a16*u8, u16, a16*VGAMode3Out) call16;*/
 .globl fbprint
 	pushw %bp
 	movw %sp,%bp
 	pushw %si
 	pushw %di
-	pushw %bx
 	movw 0x04(%bp),%si
-	movw $0xb800,%ax#TODO make based on a global variable
+	movw 0x08(%bp),%bx
+	movw (%bx),%ax#seg
 	movw %ax,%es
-	movb $0x50,%ah#width
-	movb cursor_pos_y(,1),%al
+	movb 0x02(%bx),%ah#width
+	movb 0x05(%bx),%al#y
 	mulb %ah
 	xorb %ch,%ch
-	movb cursor_pos_x(,1),%cl
+	movb 0x04(%bx),%cl#x
 	addw %cx,%ax
 	shlw %ax
 	movw %ax,%di
 	movw 0x06(%bp),%cx
-	movb $0x50,%al#width
+	movb 0x02(%bx),%al#width
 	xorb %dh,%dh
 	movb %al,%dl
-	movb $0x19,%ah#height
+	movb 0x03(%bx),%ah#height
 	mulb %ah
-	movw %ax,%bx
-	shlw $1,%bx
+	movw %ax,%bp
+	shlw $1,%bp
+	movb 0x06(%bx),%ah#format
+	pushw %bx
+	movw %bp,%bx
 	movw %dx,%bp
 	shlw $1,%bp
 	xorb %dl,%dl
-	movb print_format(,1),%ah
 	xorb $0x77,%es:1(%di)#TODO make optional
 	fbprint__read_char:
 	lodsb
@@ -61,10 +54,13 @@ fbprint:/*dhulbDoc-v200:function;u16 fbprint(a16*u8, u16) call16;*/
 	jz fbprint__end
 	*/#TODO perhaps make this optional or have a different function, which allows this to take place
 	incw %dx
+	#TODO avoid checking for control codes if the value is in the printable range
 	cmpb $0x0a,%al
 	jz fbprint__lf
 	cmpb $0x0d,%al
 	jz fbprint__cr
+	cmpb $0x1b,%al
+	jz fbprint__esc
 	stosw
 	fbprint__cont:
 	cmpw %di,%bx
@@ -98,12 +94,12 @@ fbprint:/*dhulbDoc-v200:function;u16 fbprint(a16*u8, u16) call16;*/
 	xorb $0x77,%es:1(%di)#TODO make optional
 	movw %di,%ax
 	shrw %ax
-	movb $0x50,%cl#width
-	divb %cl
-	movb %al,cursor_pos_y(,1)
-	movb %ah,cursor_pos_x(,1)
-	movw %dx,%ax
 	popw %bx
+	movb 0x02(%bx),%cl#width
+	divb %cl
+	movb %al,0x05(%bx)#y
+	movb %ah,0x04(%bx)#x
+	movw %dx,%ax
 	popw %di
 	popw %si
 	popw %bp
@@ -121,26 +117,127 @@ fbprint:/*dhulbDoc-v200:function;u16 fbprint(a16*u8, u16) call16;*/
 	popw %dx
 	popw %ax
 	jmp fbprint__cont
+	fbprint__esc:
+	pushw %es
+	pushw %bx
+	pushw %dx
+	movw %sp,%bx
+	movw %ss:0x06(%bx),%bx
+	pushw %cx
+	pushw %si
+	pushw %bx
+	decw %cx
+	pushw %cx
+	pushw %si
+	movw %di,%ax
+	shrw %ax
+	movb 0x02(%bx),%cl#width
+	divb %cl
+	xchgb %al,%ah
+	movw %ax,0x04(%bx)#x, y
+	callw fbprint_escapeHandler
+	addw $0x06,%sp
+	popw %si
+	addw %ax,%si
+	popw %dx
+	addw %ax,%dx
+	movw %sp,%bx
+	subw %ax,%ss:(%bx)
+	movw %ss:0x06(%bx),%bx
+	movb 0x02(%bx),%ah#width
+	movb 0x05(%bx),%al#y
+	mulb %ah
+	xorb %ch,%ch
+	movb 0x04(%bx),%cl#x
+	addw %cx,%ax
+	popw %cx
+	shlw %ax
+	movw %ax,%di
+	movb 0x06(%bx),%ah#format
+	popw %bx
+	popw %es
+	#jmp fbprint__end
+	jmp fbprint__cont
 readScancode:/*dhulbDoc-v201:function;u16 readScancode() call16;*/
 .globl readScancode
 	xorw %ax,%ax
 	int $0x16
 	retw
-in_buffer:
+in_buffer:#TODO make the `in' function block until all other threads executing it have finished executing it
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
 .byte 0x00
 .byte 0x00
 in:/*dhulbDoc-v202:function;u8 in() call16;*/
 	xorw %ax,%ax
+	orb in_buffer,%al
+	jnz in__buffered
 	int $0x16
 	cmpb $0x40,%al
 	jae in__end
 	cmpw $0x1c0d,%ax
 	jz in__enter
+	cmpw $0x4800,%ax
+	jz in__up
+	cmpw $0x5000,%ax
+	jz in__down
+	cmpw $0x4b00,%ax
+	jz in__left
+	cmpw $0x4d00,%ax
+	jz in__right
 	jmp in__end
+	in__up:
+	movw $0x5b,2+in_buffer
+	movw $0x3141,in_buffer
+	movw $0x1b,%ax
+	retw
+	in__down:
+	movw $0x5b,2+in_buffer
+	movw $0x3142,in_buffer
+	movw $0x1b,%ax
+	retw
+	in__right:
+	movw $0x5b,2+in_buffer
+	movw $0x3143,in_buffer
+	movw $0x1b,%ax
+	retw
+	in__left:
+	movw $0x5b,2+in_buffer
+	movw $0x3144,in_buffer
+	movw $0x1b,%ax
+	retw
 	in__enter:
-	movb $0x0a,%al
+	movw $0x0a,%ax
 	retw
 	jmp in__end
+	xorb %ah,%ah
 	#TODO actually process more stuff
 	in__end:
+	retw
+	in__buffered:
+	pushw %di
+	movw %ds,%ax
+	movw %ax,%es
+	movw $0x10,%cx
+	xorw %ax,%ax
+	movw $in_buffer,%di
+	repnz
+	scasb
+	decw %di
+	decw %di
+	movb (%di),%al
+	movb %ah,(%di)
+	popw %di
 	retw

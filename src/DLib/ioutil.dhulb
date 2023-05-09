@@ -6,6 +6,43 @@
  */
 #import <sys.dhulb>
 #import "util.dhulb"
+int readInt(int fd, *u8 next, *int dest) {
+	int num = 0;
+	int n = bread(fd);
+	if (n < 0) {
+		return n;
+	}
+	u8 neg = 0;
+	if (n == 0x2d) {
+		neg = 1;
+		n = bread(fd);
+		if (n < 0) {
+			return n;
+		}
+	}
+	if ((n < 0x30) | (n > 0x39)) {
+		n as u8 -> next;
+		0 -> dest;
+		return 0;
+	}
+	:readInt__loop;
+	num = num * 10;
+	num = num + n - 0x30;
+	n = bread(fd);
+	if (n < 0) {
+		return n;
+	}
+	if ((n < 0x30) | (n > 0x39)) {
+		n as u8 -> next;
+		if (neg) {
+			(0 - num) -> dest;
+			return 0;
+		}
+		num -> dest;
+		return 0;
+	}
+	goto readInt__loop;
+}
 int readLine(int fd, int fdo, *u8 dest, uint count) {
 	count = count - 1;
 	uint pos = 0;
@@ -17,6 +54,27 @@ int readLine(int fd, int fdo, *u8 dest, uint count) {
 		return in;
 	}
 	/*del and mvmt*/
+	if (in == 0x1b) {
+		in = bread(fd);
+		if (in < 0) {
+			return in;
+		}
+		if (in == 0x5b) {
+			int c;
+			int er;
+			er = readInt(fd, in$, c$);
+			if (er < 0) {
+				return er;
+			}
+			if ((in == 0x43) | (in == 0x44)) {
+				if (in == 0x44) {
+					c = 0 - c;
+				}
+				/*bwrite(fdo, (c + 0x23) as u8);*/
+			}
+			goto readLine__loop;
+		}
+	}
 	if (in == 0x0a) {
 		bwrite(fdo, in as u8);
 		0 as u8 -> (dest + mPos);

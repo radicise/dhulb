@@ -1476,7 +1476,7 @@ class Yield implements Doable {//use the function's ABI
 				cab = 64;
 				break;
 			default:
-				throw new InternalCompilerException("This exceptional condition should not occur!");
+				throw new InternalCompilerException("Unidentifiable target");
 		}
 		abiChange(cab, abiSize, retType.type.size());
 		ret(abiSize);
@@ -1495,11 +1495,13 @@ class Yield implements Doable {//use the function's ABI
 				Compiler.text.println("retw");
 				break;
 			case (32):
+				Compiler.text.println("movl -4(%ebp),%ebx");
 				Compiler.text.println("movl %ebp,%esp");
 				Compiler.text.println("popl %ebp");
 				Compiler.text.println("retl");
 				break;
 			case (64):
+				Compiler.text.println("movq -8(%rbp),%rbx");
 				Compiler.text.println("movq %rbp,%rsp");
 				Compiler.text.println("popq %rbp");
 				Compiler.text.println("retq");
@@ -2032,25 +2034,25 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 			Compiler.text.print(".globl ");
 			Compiler.text.println(name);
 		}
-		if (minOff == (-1)) {
-			switch (abiSize) {
-				case (16):
-					Compiler.text.println("pushw %bp");
-					Compiler.text.println("movw %sp,%bp");
-					Compiler.text.println("decw %sp");
-					break;
-				case (32):
-					Compiler.text.println("pushl %ebp");
-					Compiler.text.println("movl %esp,%ebp");
-					Compiler.text.println("decl %esp");
-					break;
-				case (64):
-					throw new NotImplementedException();
-				default:
-					throw new InternalCompilerException("Unidentifiable target");
-			}
-		}
-		else if (minOff < 0) {
+//		if (minOff == (-1)) {
+//			switch (abiSize) {
+//				case (16):
+//					Compiler.text.println("pushw %bp");
+//					Compiler.text.println("movw %sp,%bp");
+//					Compiler.text.println("decw %sp");
+//					break;
+//				case (32):
+//					Compiler.text.println("pushl %ebp");
+//					Compiler.text.println("movl %esp,%ebp");
+//					Compiler.text.println("decl %esp");
+//					break;
+//				case (64):
+//					throw new NotImplementedException();
+//				default:
+//					throw new InternalCompilerException("Unidentifiable target");
+//			}
+//		} else
+		if (minOff < 0) {
 			switch (abiSize) {
 				case (16):
 					Compiler.text.println("pushw %bp");
@@ -2061,6 +2063,7 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 					Compiler.text.println("pushl %ebp");
 					Compiler.text.println("movl %esp,%ebp");
 					Compiler.text.println("subl $" + Util.signedRestrict(-minOff, 33) + ",%esp");
+					Compiler.text.println("movl %ebx,-4(%ebp)");
 					break;
 				case (64):
 					throw new NotImplementedException();
@@ -2075,11 +2078,9 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 					Compiler.text.println("movw %sp,%bp");
 					break;
 				case (32):
-					Compiler.text.println("pushl %ebp");
-					Compiler.text.println("movl %esp,%ebp");
-					break;
+					throw new InternalCompilerException("This exceptional condition should not occur!");
 				case (64):
-					throw new NotImplementedException();
+					throw new InternalCompilerException("This exceptional condition should not occur!");
 				default:
 					throw new InternalCompilerException("Unidentifiable target");
 			}
@@ -2124,6 +2125,9 @@ class Function implements Stacked, Compilable {//TODO maybe warn when the code m
 		}
 		fn.dargs = ad;
 		Compiler.context.push(ar);
+		if (fn.abiSize != 16) {
+			fn.adjust(-(fn.abiSize / 8));
+		}
 		try {
 			while (true) {
 				Compiler.getCompilable(comps, true, fn);
@@ -2817,7 +2821,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 //		args16_16(amnt, vals);
 		throw new NotImplementedException();
 	}
-	static void args16_16(int amnt, Value[] vals) throws InternalCompilerException, CompilationException {//argument pushing for calls from 16-bit code using the 16-bit ABI or the 32-bit ABI (the 32-bit ABI is the System V ABI for Intel386 and the 16-bit ABI is the same thing but with 16-bit calls instead of 32-bit calls and %ebx can be scratched in functions and data is returned from functions, from lowest to highest word, in %ax, %dx, %cx, and %bx)
+	static void args16_16(int amnt, Value[] vals) throws InternalCompilerException, CompilationException {//argument pushing for calls from 16-bit code using the 16-bit ABI or the 32-bit ABI (the 32-bit ABI is the System V ABI for Intel386 and the 16-bit ABI is the same thing but with 16-bit calls instead of 32-bit calls and %bx can be scratched in functions, the preservation of the upper half of %ebx, should it exist, is left undefined, and data is returned from functions, from lowest to highest word, in %ax, %dx, %cx, and %bx)
 		FullType typ;
 		for (int i = (amnt - 1); i >= 0; i--) {//TODO allow more than Integer.MAX_VALUE arguments to be used
 			typ = vals[i].bring();
@@ -4923,10 +4927,12 @@ class Jump implements Doable {
 					Compiler.text.print("subw $");
 					Compiler.text.print(Util.signedRestrict(n, 16));
 					Compiler.text.println(",%sp");
+					break;
 				case (1):
 					Compiler.text.print("subl $");
 					Compiler.text.print(Util.signedRestrict(n, 33));
 					Compiler.text.println(",%esp");
+					break;
 				case (2):
 					throw new NotImplementedException();
 				default:
@@ -4939,10 +4945,12 @@ class Jump implements Doable {
 					Compiler.text.print("addw $");
 					Compiler.text.print(Util.signedRestrict(-n, 16));
 					Compiler.text.println(",%sp");
+					break;
 				case (1):
 					Compiler.text.print("addl $");
 					Compiler.text.print(Util.signedRestrict(-n, 33));
 					Compiler.text.println(",%esp");
+					break;
 				case (2):
 					throw new NotImplementedException();
 				default:

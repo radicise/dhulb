@@ -1,0 +1,19 @@
+/*
+ * io.dhulb
+ * Created on 2023-05-03
+ *
+ */
+struct VGAMode3Out {
+	u16 seg,
+	u8 width,
+	u8 height,
+	u8 x,
+	u8 y,
+	u8 format;
+}
+/*text frame buffer based on VGA mode 4, buffer must be sixteenbyte-aligned (starts at the beginning of the real-mode segment held by `seg')*/
+#utilise "io.s" docscan
+u16 fbprint_escapeHandler(*u8 text, uint remaining, *VGAMode3Out dev) {
+	/*`text' is the address after that of the escape character, `remaining' is the amount of characters available starting at `text'*/
+	return 0;
+}
