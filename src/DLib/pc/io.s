@@ -241,3 +241,31 @@ in:/*dhulbDoc-v202:function;u8 in() call16;*/
 	movb %ah,(%di)
 	popw %di
 	retw
+CHS_read:/*dhulbDoc-v301:function;s16 CHS_read(u16, a16, u16, u8, u8, u8, u8) call16;*/
+#u16 seg 4(%bp)
+#a16 dest 6(%bp)
+#u16 cylinder 8(%bp)
+#u8 head 10(%bp)
+#u8 sector 12(%bp)
+#u8 disk 14(%bp)
+#u8 count 16(%bp)
+pushw %bp
+movw %sp,%bp
+movw 4(%bp),%ax
+movw %ax,%es
+movb 16(%bp),%al
+movb $0x02,%ah
+movb 14(%bp),%dl
+movb 10(%bp),%dh
+xorb %cl,%cl
+movb 9(%bp),%ch
+shrw $2,%cx
+orb 12(%bp),%cl
+movb 8(%bp),%ch
+movw 6(%bp),%bx
+int $0x13
+xorb %ah,%ah
+setnc %al
+decw %ax
+popw %bp
+retw

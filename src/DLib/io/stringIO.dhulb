@@ -1,0 +1,33 @@
+#import "streams.dhulb"
+struct StringInputStream extends InputStream {
+	*u8 str,
+	uint pos;
+}
+int strIn_read(addr dest, uint len, *StringInputStream it) {
+	*u8 p = it.str@ + it.pos@;
+	uint il = len;
+	int read = 0;
+	:str_read__loop;
+	if !(len) {
+		p - (it.str@) -> it.pos;
+		return il;
+	}
+	if (p@ == 0x00) {
+		p - (it.str@) -> it.pos;
+		return il - len;
+	}
+	p@ -> dest;
+	len = len - 1;
+	dest = dest + 1;
+	goto str_read__loop;
+}
+int strIn_close(*StringInputStream) {
+	return 0;
+}
+int strIn_init(*u8 str, *StringInputStream it) {
+	str -> it.str;
+	0 -> it.pos;
+	strIn_close -> it.close;
+	strIn_read -> it.read;
+	return 0;
+}

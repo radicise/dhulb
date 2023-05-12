@@ -91,8 +91,8 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static int CALL_SIZE_BITS = 16;//default address size (for global variable references, global function calls, and default global function calling conventions); must be 16, 32, or 64
 	public static boolean showCompilationErrorStackTrace = false;
 	public static int warns = 0;
-	public static final long numericVersion = /*00_00_0*/3_00;//TODO bump when needed, should be bumped in accord with every bump of stringVersion; do NOT remove this to-do marker
-	public static final String stringVersion = "0.0.3.0";//TODO bump when needed, should be bumped in accord with every bump with numericVersion; do NOT remove this to-do marker
+	public static final long numericVersion = /*00_00_0*/3_01;//TODO bump when needed, should be bumped in accord with every bump of stringVersion; do NOT remove this to-do marker
+	public static final String stringVersion = "0.0.3.1";//TODO bump when needed, should be bumped in accord with every bump of numericVersion; do NOT remove this to-do marker
 	public static TreeMap<String, NoScopeVar> HVars = new TreeMap<String, NoScopeVar>();
 	public static TreeMap<String, Function> HFuncs = new TreeMap<String, Function>();
 	public static Stack<Map<String, StackVar>> context = new Stack<Map<String, StackVar>>();
@@ -432,7 +432,6 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 					throw new CompilationException("Reserved identifier for class: " + naam);
 				}
 				Structure st = Structure.from(naam);
-				Compiler.structs.put(naam, st);
 				list.add(st);
 			}
 			else if (s.equals("typealias") || s.equals("typefullalias")) {
@@ -1715,6 +1714,7 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 		}
 		length = parent.lenUsed;
 		alignmentBytes = parent.alignmentBytes;
+		fields = new LinkedHashMap<String, StructEntry>();
 		parent.fields.forEach(new BiConsumer<String, StructEntry>() {
 			public void accept(String s, StructEntry se) {
 				fields.put(s, new StructEntry(se.offset, se.type));
@@ -1803,6 +1803,8 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 		boolean byref = true;
 		Util.skipWhite();
 		i = Util.read();
+		Compiler.structs.put(name, st);
+		st.fulltype = FullType.of(st.type = new StructuredType(st));
 		if (i == '}') {
 			st.finishFields();
 			return st;
@@ -1851,14 +1853,20 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 			if (nof) {
 				i = Util.read();
 				if (i == '(') {
+					throw new CompilationException("Function declaration not allowed within a structure");
+					/*
 					st.finishFields();
 					iaf = true;
 					break;
+					*/
 				}
 				Util.unread(i);
 			}
 			if (st.fields.containsKey(sr)) {
 				throw new CompilationException("Duplicate structural type field name: " + sr);
+			}
+			if (ft.type == st.type) {
+				throw new CompilationException("Structure contains itself: " + name);
 			}
 			st.addField(sr, ft);
 			mif = false;
@@ -1874,7 +1882,6 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 				throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
 			}
 		}
-		st.fulltype = FullType.of(st.type = new StructuredType(st));
 		if (iaf) {//starts after the opening parenthesis
 			if (st.fields.containsKey(sr)) {
 				throw new CompilationException("Class method has the same name as a field of the instance's structural type");
@@ -1892,13 +1899,17 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 			Util.skipWhite();
 			sr = Util.phrase(0x3d);
 			if ((sr.equals("byref")) || (sr.equals("byval"))) {
+				throw new CompilationException("Function declaration not allowed within a structure");
+				/*
 				byref = sr.equals("byref");
 				Util.skipWhite();
 				sr = Util.phrase(0x3d);
+				*/
 			}
 			else {
 				byref = true;
 			}
+			/*
 			if (Util.nondefk.contains(sr)) {
 				throw new CompilationException("Reserved identifier: " + sr);
 			}
@@ -1908,12 +1919,16 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 			if (st.fields.containsKey(sr)) {
 				throw new CompilationException("Class method has the same name as a field of the instance's structural type");
 			}
+			*/
 			Util.skipWhite();
 			i = Util.read();
 			if (i != '(') {
 				throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
 			}
+			throw new CompilationException("Function declaration not allowed within a structure");
+			/*
 			aiherghre(st, sr, ft, byref);
+			*/
 		}
 		return st;
 	}
@@ -2877,7 +2892,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 	}
 }
 interface Typed {//EVERY Typed MUST have its `size()' result in a positive int below 65536 that is evenly divisible by 8
-	int size();
+	int size() throws InternalCompilerException;
 	boolean addressable();
 	boolean floating() throws InternalCompilerException;
 	boolean signed() throws InternalCompilerException;//only applicable for integral types
@@ -2894,20 +2909,20 @@ interface Typed {//EVERY Typed MUST have its `size()' result in a positive int b
 	void popMain() throws InternalCompilerException;
 	void popAddr() throws InternalCompilerException;
 	void toAddr() throws CompilationException, InternalCompilerException;
-	int alignmentBits();
+	int alignmentBits() throws InternalCompilerException;
 }
 class StructuredType implements Typed {//TODO fix `size()' returning 0 when the struct has no items conflicting with the need or the result of the call to be positive
 	Structure struct;
-	public int size() {
+	public int size() throws InternalCompilerException {
+		if (!(struct.fieldsFinalised())) {
+			throw new InternalCompilerException("Usage of the length of the type of a non-field-finalised structure");
+		}
 		return (int) (struct.length * 8L);//TODO maybe fix the need for casting; structs longer than the int max value are not supported in this manner
 	}
 	public boolean addressable() {
 		return false;
 	}
 	StructuredType(Structure st) throws InternalCompilerException {
-		if (!(st.fieldsFinalised())) {
-			throw new InternalCompilerException("Creation of a structured type based on a non-field-finalised class");
-		}
 		struct = st;
 	}
 	public String toString() {
@@ -2931,7 +2946,10 @@ class StructuredType implements Typed {//TODO fix `size()' returning 0 when the 
 	public boolean signed() throws InternalCompilerException {
 		throw new InternalCompilerException("Requested boolean information is not applicable for a structured type");
 	}
-	public int alignmentBits() {
+	public int alignmentBits() throws InternalCompilerException {
+		if (!(struct.fieldsFinalised())) {
+			throw new InternalCompilerException("Usage of the alignment of the type of a non-field-finalised structure");
+		}
 		return struct.alignmentBytes * 8;
 	}
 }
@@ -3474,7 +3492,7 @@ class RawText implements Doable {
 }
 class Literal extends Value {
 	final long val;//Non-conforming places must hold zero
-	Literal(FullType typ, long vlu) {
+	Literal(FullType typ, long vlu) throws InternalCompilerException {
 		type = typ;
 		val = (vlu & (0xffffffffffffffffL >>> (64 - type.type.size())));
 	}
@@ -4673,18 +4691,21 @@ class Expression extends Value {
 						}
 						Util.skipWhite();
 						FullType fto = FullType.from();
+						/*
 						Util.skipWhite();
 						int ir = Util.read();
 						if (ir == '(') {
 							Util.unread(ir);
-							Value ra = (Value) last;
-							ex.skim(ra);
-							Expression en = new Expression();
-							en.add(ra);
-							en.add(new Casting(raw, ra.type, fto));
-							en.finalised = true;
-							en.type = fto;
-							ex.add(last = en);
+						*/
+						Value ra = (Value) last;
+						ex.skim(ra);
+						Expression en = new Expression();
+						en.add(ra);
+						en.add(new Casting(raw, ra.type, fto));
+						en.finalised = true;
+						en.type = fto;
+						ex.add(last = en);
+						/*
 						}
 						else {
 							boolean de = true;
@@ -4735,6 +4756,7 @@ class Expression extends Value {
 								ex.add(last = new Casting(raw, ((Value) last).type, fto));
 							}
 						}
+						*/
 					}
 					else {
 						try {
@@ -4746,6 +4768,7 @@ class Expression extends Value {
 								throw new CompilationException("Invalid statement: " + s);
 							}//Not an expression, function call, symbol, or literal
 							int i = Util.read();
+							Expression ej;
 							switch (i) {
 								case ('['):
 									if (!(last instanceof Value)) {
@@ -4754,7 +4777,7 @@ class Expression extends Value {
 									if (!(((Value) last).type.type.addressable())) {
 										throw new CompilationException("Attempt to use the indexing operator on a non-addressable type");
 									}
-									Expression ej = Expression.from(']');
+									ej = Expression.from(']');
 									ej = Expression.from(new Item[]{last, Operator.ADD, Expression.from(new Item[]{Expression.from(new Item[]{ej, new Casting(false, ej.type, FullType.of(Compiler.defOff))}), (((((Value) last).type.gives == null) == (((Value) last).type.runsWith == null)) && (((Value) last).type.gives.type.size() != 8)) ? null : Operator.MUL, (((((Value) last).type.gives == null) == (((Value) last).type.runsWith == null)) && (((Value) last).type.gives.type.size() != 8)) ? null : (new Literal(FullType.of(Compiler.defOff), (long) (((((Value) last).type.gives == null) == (((Value) last).type.runsWith == null)) ? 1 : (((Value) last).type.gives.type.size() / 8))))})});
 									ex.skim(last);
 									ex.add(last = ej);
@@ -4809,7 +4832,9 @@ class Expression extends Value {
 									ex.add(last = Operator.DIV);
 									break;
 								case ('@'):
-									ex.add(last = Operator.GET);
+									ej = Expression.from(new Item[]{last, Operator.GET});
+									ex.skim(last);
+									ex.add(last = ej);
 									break;
 								case ('$'):
 									if (last instanceof NoScopeVar) {
@@ -4874,11 +4899,18 @@ class Expression extends Value {
 									}
 									else {
 										Util.unread(i);
-										ex.add(last = Operator.LNEG);
+										ej = Expression.from(new Item[]{last, Operator.LNEG});
+										ex.skim(last);
+										ex.add(last = ej);
 									}
 									break;
+								case ('~'):
+									ej = Expression.from(new Item[]{last, Operator.BNEG});
+									ex.skim(last);
+									ex.add(last = ej);
+									break;
 								default:
-									throw new NotImplementedException();
+									throw new NotImplementedException("Not-yet-implemented or illegal operator");
 							}
 						}
 					}

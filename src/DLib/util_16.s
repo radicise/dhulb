@@ -37,3 +37,17 @@ setnz %al
 orb %ah,%al
 popw %bp
 retw
+memcpy:/*dhulbDoc-v301:function;a16 memcpy(a16, a16, u16) call16*/
+.globl memcpy
+pushw %bp
+movw %sp,%bp
+pushw %si
+pushw %di
+movw 4(%bp),%di
+movw 6(%bp),%si
+movw 8(%bp),%cx
+rep movsb
+popw %di
+popw %si
+popw %bp
+retw

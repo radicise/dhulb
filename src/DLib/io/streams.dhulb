@@ -1,0 +1,8 @@
+struct OutputStream {
+	addr$int(addr, uint, *OutputStream) write,
+	addr$int(*OutputStream) close;
+}
+struct InputStream {
+	addr$int(addr, uint, *InputStream) read,
+	addr$int(*InputStream) close;
+}

@@ -1,0 +1,54 @@
+struct BufferInputStream extends InputStream {
+	addr buf,
+	uint len,
+	uint pos;
+}
+int bufIn_read(addr dest, uint len, *BufferInputStream it) {
+	uint rem = it.len@ - it.pos@;
+	if (rem < len) {
+		memcpy(dest, it.buf@ + it.pos@, rem);
+		it.pos@ + rem -> it.pos;
+		return rem;
+	}
+	memcpy(dest, it.buf@ + it.pos@, len);
+	it.pos@ + len -> it.pos;
+	return len;
+}
+int bufIn_close(*BufferInputStream it) {
+	return 0;
+}
+int bufIn_init(addr buf, uint len, *BufferInputStream it) {
+	buf -> it.buf;
+	len -> it.len;
+	0 -> it.pos;
+	bufIn_close -> it.close;
+	bufIn_read -> it.read;
+	return 0;
+}
+struct BufferOutputStream extends OutputStream {
+	addr buf,
+	uint len,
+	uint pos;
+}
+int bufOut_write(addr src, uint len, *BufferOutputStream it) {
+	uint rem = it.len@ - it.pos@;
+	if (rem < len) {
+		memcpy(it.buf@ + it.pos@, src, rem);
+		it.pos@ + rem -> it.pos;
+		return rem;
+	}
+	memcpy(it.buf@ + it.pos@, src, len);
+	it.pos@ + len -> it.pos;
+	return len;
+}
+int bufOut_close(*BufferOutputStream it) {
+	return 0;
+}
+int bufOut_init(addr buf, uint len, *BufferOutputStream it) {
+	buf -> it.buf;
+	len -> it.len;
+	0 -> it.pos;
+	bufOut_close -> it.close;
+	bufOut_write -> it.write;
+	return 0;
+}
