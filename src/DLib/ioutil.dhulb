@@ -6,6 +6,12 @@
  */
 #import <sys.dhulb>
 #import "util.dhulb"
+/%
+newline:
+.byte 0x0a
+.byte 0x00
+%/
+imply u8 newline;
 int readInt(int fd, *u8 next, *int dest) {
 	int num = 0;
 	int n = bread(fd);
@@ -91,6 +97,21 @@ int readLine(int fd, int fdo, *u8 dest, uint count) {
 }
 int print(*u8 a) {
 	return write($$STDOUT_FILENO$$, a, strlen(a));
+}
+int print_uint(uint a) {
+	int g;
+	int t = 0;
+	:print_uint__loop;
+	g = bwrite($$STDOUT_FILENO$$, (a % 10) + 0x30);
+	if (g < 0) {
+		return g;
+	}
+	t = t + g;
+	a = a / 10;
+	if (a == 0) {
+		return t;
+	}
+	goto print_uint__loop;
 }
 int println(*u8 a) {
 	sint g = write($$STDOUT_FILENO$$, a, strlen(a));

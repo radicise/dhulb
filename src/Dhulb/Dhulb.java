@@ -3884,6 +3884,7 @@ class Operator extends Item {
 								}
 							case (1):
 							case (2):
+								Compiler.text.println("xorb %ah,%ah");
 								if (LHO.type.signed()) {
 									Compiler.text.println("idivb %dl");
 									if (fn == 2) {
@@ -3910,7 +3911,13 @@ class Operator extends Item {
 						else {
 							RHO.type.cast(FullType.u16);
 						}
-						Compiler.text.println("movw %ax,%dx");
+						if (fn == 0) {
+							Compiler.text.println("movw %ax,%dx");
+						}
+						else {
+							Compiler.text.println("movw %ax,%cx");
+							Compiler.text.println("xorw %dx,%dx");
+						}
 						LHO.type.popMain();
 						switch (fn) {
 							case (0):
@@ -3925,14 +3932,14 @@ class Operator extends Item {
 							case (1):
 							case (2):
 								if (LHO.type.signed()) {
-									Compiler.text.println("idivw %dx");
+									Compiler.text.println("idivw %cx");
 									if (fn == 2) {
 										Compiler.text.println("movw %dx,%ax");
 									}
 									return LHO;
 								}
 								else {
-									Compiler.text.println("divw %dx");
+									Compiler.text.println("divw %cx");
 									if (fn == 2) {
 										Compiler.text.println("movw %dx,%ax");
 									}
@@ -3953,7 +3960,13 @@ class Operator extends Item {
 						else {
 							RHO.type.cast(FullType.u32);
 						}
-						Compiler.text.println("movl %eax,%edx");
+						if (fn == 0) {
+							Compiler.text.println("movl %eax,%edx");
+						}
+						else {
+							Compiler.text.println("movl %eax,%ecx");
+							Compiler.text.println("xorl %edx,%edx");
+						}
 						LHO.type.popMain();
 						switch (fn) {
 							case (0):
@@ -3968,14 +3981,14 @@ class Operator extends Item {
 							case (1):
 							case (2):
 								if (LHO.type.signed()) {
-									Compiler.text.println("idivl %edx");
+									Compiler.text.println("idivl %ecx");
 									if (fn == 2) {
 										Compiler.text.println("movl %edx,%eax");
 									}
 									return LHO;
 								}
 								else {
-									Compiler.text.println("divl %edx");
+									Compiler.text.println("divl %ecx");
 									if (fn == 2) {
 										Compiler.text.println("movl %edx,%eax");
 									}
@@ -3996,7 +4009,13 @@ class Operator extends Item {
 						else {
 							RHO.type.cast(FullType.u32);
 						}
-						Compiler.text.println("movq %rax,%rdx");
+						if (fn == 0) {
+							Compiler.text.println("movq %rax,%rdx");
+						}
+						else {
+							Compiler.text.println("movq %rax,%rcx");
+							Compiler.text.println("xorq %rdx,%rdx");
+						}
 						LHO.type.popMain();
 						switch (fn) {
 							case (0):
@@ -4011,14 +4030,14 @@ class Operator extends Item {
 							case (1):
 							case (2):
 								if (LHO.type.signed()) {
-									Compiler.text.println("idivq %rdx");
+									Compiler.text.println("idivq %rcx");
 									if (fn == 2) {
 										Compiler.text.println("movq %rdx,%rax");
 									}
 									return LHO;
 								}
 								else {
-									Compiler.text.println("divq %rdx");
+									Compiler.text.println("divq %rcx");
 									if (fn == 2) {
 										Compiler.text.println("movq %rdx,%rax");
 									}
@@ -4908,6 +4927,9 @@ class Expression extends Value {
 									ej = Expression.from(new Item[]{last, Operator.BNEG});
 									ex.skim(last);
 									ex.add(last = ej);
+									break;
+								case ('%'):
+									ex.add(last = Operator.MOD);
 									break;
 								default:
 									throw new NotImplementedException("Not-yet-implemented or illegal operator");
