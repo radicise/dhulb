@@ -2,6 +2,21 @@ struct OutputStream {
 	addr$int(addr, uint, *OutputStream) write,
 	addr$int(*OutputStream) close;
 }
+int OutStream_writeInt(uint t, *OutputStream it) {
+	return it.write@(t$, $$OPERAND_BITS$$ / 8, it);
+}
+int OutStream_write8(u8 t, *OutputStream it) {
+        return it.write@(t$, 1, it);
+}
+int OutStream_write16(u16 t, *OutputStream it) {
+        return it.write@(t$, 2, it);
+}
+int OutStream_write32(u32 t, *OutputStream it) {
+        return it.write@(t$, 4, it);
+}
+int OutStream_write64(u64 t, *OutputStream it) {
+        return it.write@(t$, 8, it);
+}
 struct InputStream {
 	addr$int(addr, uint, *InputStream) read,
 	addr$int(*InputStream) close;

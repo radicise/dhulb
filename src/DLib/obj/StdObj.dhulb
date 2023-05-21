@@ -1,0 +1,15 @@
+#import <io/bufferIO.dhulb>
+#define STDOBJ_ID 1
+struct StdObj {
+	u64 typeID,
+	addr$int(*OutputStream, *StdObj) serialize;
+}
+int StdObj_serialise(*OutputStream os, *StdObj it) {
+	return 1;
+	/*TODO implement*/
+}
+int StdObj_init(*StdObj it) {
+	$$STDOBJ_ID$$ -> it.typeID;
+	StdObj_serialise -> it.serialize;
+	return 0;
+}

@@ -44,6 +44,8 @@ movw %sp,%bp
 pushw %si
 pushw %di
 movw 4(%bp),%di
+movw %ds,%ax
+movw %ax,%es
 movw %di,%ax
 movw 6(%bp),%si
 movw 8(%bp),%cx

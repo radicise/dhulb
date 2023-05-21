@@ -1,3 +1,5 @@
+#import <io/streams.dhulb>
+#import <util.dhulb>
 struct BufferInputStream extends InputStream {
 	addr buf,
 	uint len,

@@ -101,14 +101,22 @@ int print(*u8 a) {
 int print_uint(uint a) {
 	int g;
 	int t = 0;
+	uint place = (0 - 1) as uint;
+	uint ra = 1;
+	:print_uint__loop2;
+	place = place / 10;
+	if (place != 0) {
+		ra = ra * 10;
+		goto print_uint__loop2;
+	}
 	:print_uint__loop;
-	g = bwrite($$STDOUT_FILENO$$, (a % 10) + 0x30);
+	g = bwrite($$STDOUT_FILENO$$, ((a / ra) % 10) + 0x30);
 	if (g < 0) {
 		return g;
 	}
 	t = t + g;
-	a = a / 10;
-	if (a == 0) {
+	ra = ra / 10;
+	if (ra == 0) {
 		return t;
 	}
 	goto print_uint__loop;

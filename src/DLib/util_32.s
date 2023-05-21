@@ -79,3 +79,22 @@ cbtw
 setnz %al
 orb %ah,%al
 retl
+memcpy:/*dhulbDoc-v301:function;a32 memcpy(a32, a32, u32) call32*/
+.globl memcpy
+pushl %ebp
+movl %esp,%ebp
+pushl %esi
+pushl %edi
+pushl %ebx
+movl 8(%ebp),%edi
+movw %ds,%ax
+movw %ax,%es
+movl %edi,%eax
+movl 12(%ebp),%esi
+movl 16(%ebp),%ecx
+rep movsb
+popl %ebx
+popl %edi
+popl %esi
+popl %ebp
+retl
