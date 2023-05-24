@@ -422,7 +422,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		}
 		catch (UnidentifiableTypeException utt) {
 			s = utt.verbatim;//s = phrase(0x2d)
-			if (s.equals("class") || s.equals("struct")) {
+			if (s.equals("class") || s.equals("struct") || s.equals("structure")) {
 				Util.skipWhite();
 				String naam = Util.phrase(0x3d);
 				if (!(Util.legalIdent(naam))) {
@@ -615,11 +615,16 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 				}
 				else {
 					Literal j;
-					try {
-						j = Util.getLit(s);
+					if (Util.nulitk.contains(s)) {
+						j = Compiler.nul;
 					}
-					catch (NumberFormatException E) {
-						throw new CompilationException("Invalid literal notation: " + s);
+					else {
+						try {
+							j = Util.getLit(s);
+						}
+						catch (NumberFormatException E) {
+							throw new CompilationException("Invalid literal notation: " + s);
+						}
 					}
 					list.add(Expression.from(';', j));
 				}
@@ -696,7 +701,7 @@ class Util {
 	static long sen = 0;
 	static int[] brace = new int[]{'(', ')', '[', ']', '{', '}', '<', '>'};
 	static ArrayList<String> keywork = new ArrayList<String>();
-	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct", "typealias", "typefullalias"};
+	static String[] keywore = new String[]{"abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "if", "goto", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "transient", "try", "void", "volatile", "while", "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "f32", "f64", "a16", "a32", "a64", "uint", "sint", "addr", "imply", "as", "to", "byref", "byval", "jump", "struct", "typealias", "typefullalias", "structure"};
 	static ArrayList<String> accesk = new ArrayList<String>();
 	static String[] accese = new String[]{};
 	static ArrayList<String> boolitk = new ArrayList<String>();
@@ -1462,6 +1467,7 @@ class Yield implements Doable {//use the function's ABI
 		FullType ft = val.bring();
 		if (!(ft.provides(retType))) {
 			ft.cast(retType);
+			Util.warn("Implicit cast from " + ft.toString() + " to " + retType.toString() + " during function yield");
 		}
 		int cab;
 		switch (Compiler.mach) {
@@ -2279,7 +2285,7 @@ class FullType {//Like Type but with possible pointing or running clauses
 				return false;
 			}
 			for (int i = 0; i < this.runsWith.length; i++) {
-				if (!(this.runsWith[i].provides(typ.runsWith[i]))) {
+				if (!(typ.runsWith[i].provides(this.runsWith[i]))) {
 					return false;
 				}
 			}

@@ -1,0 +1,92 @@
+#import "ObjComparable.dhulb"
+structure MapEntry {
+	*ObjComparable key,
+	addr val;
+}
+#define OBJMAP_ID 5
+structure Map extends StdObj {
+	*MapEntry entries,
+	int size,
+	addr$int(*ObjComparable, *Map) find,
+	addr$addr(*ObjComparable, *Map) get,
+	addr$int(*ObjComparable, addr, *Map) add,
+	addr$int(*ObjComparable, *Map) remove;
+}
+int Map_find(*ObjComparable key, *Map it) {
+	if (key == null) {
+		return 0 - 1;
+	}
+	*MapEntry loc = it.entries@;
+	addr lmax = loc[it.size@];
+	:Map_find__loop;
+	if (loc == lmax) {
+		return 0 - 1;
+	}
+	if (loc.key@ == null) {
+		loc = loc[1];
+		goto Map_find__loop;
+	}
+	if (Objcmp(loc.key@, key) == 0) {
+		return (loc - it.entries@) to int / %[size MapEntry] to int;
+	}
+	loc = loc[1];
+	goto Map_find__loop;
+}
+addr Map_get(*ObjComparable key, *Map it) {
+	int g = it.find@(key, it);
+	if (g < 0) {
+		return null;
+	}
+	return it.entries@[g].val@;
+}
+int Map_add(*ObjComparable key, addr val, *Map it) {
+        if (key == null) {
+		return 0 - 1;
+	}
+	if (it.find@(key) >= 0) {
+		return 0 - 1;
+	}
+	*MapEntry loc = it.entries@;
+        addr lmax = loc[it.size@];
+        :Map_find__loop;
+        if (loc == lmax) {
+                return 0 - 1;
+        }
+        if (loc.key@ == null) {
+        	key -> loc.key;
+		val -> loc.val;
+		return (loc - it.entries@) to int / %[size MapEntry] to int;
+	}
+        loc = loc[1];
+        goto Map_find__loop;
+}
+int Map_remove(*ObjComparable key, *Map it) {
+	int g = it.find@(key);
+	if (g < 0) {
+		return g;
+	}
+	null -> it.entries@[g].key;
+	return 0;
+}
+int Map_init(addr buf, int count, *Map it) {
+	if (count < 0) {
+		return 0 - 1;
+	}
+	*MapEntry loc = buf as *MapEntry;
+	addr lmax = loc[count];
+	:Map_init__loop;
+	if !(loc == lmax) {
+		null -> loc.key;
+		loc = loc[1];
+		goto Map_init__loop;
+	}
+	count -> it.size;
+	buf as *MapEntry -> it.entries;
+	Map_find -> it.find;
+	Map_get -> it.get;
+	Map_add -> it.add;
+	Map_remove -> it.remove;
+	$$OBJMAP_ID$$ -> it.typeID;
+	serialize_null -> it.serialize;
+	return 0;
+}

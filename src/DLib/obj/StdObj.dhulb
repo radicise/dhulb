@@ -1,15 +1,19 @@
 #import <io/bufferIO.dhulb>
 #define STDOBJ_ID 1
+typefullalias stdobjtypeid_t u16;
 struct StdObj {
-	u64 typeID,
+	stdobjtypeid_t typeID,
 	addr$int(*OutputStream, *StdObj) serialize;
 }
 int StdObj_serialise(*OutputStream os, *StdObj it) {
-	return 1;
+	return 0 - 1;
 	/*TODO implement*/
 }
 int StdObj_init(*StdObj it) {
-	$$STDOBJ_ID$$ -> it.typeID;
+	$$STDOBJ_ID$$ to stdobjtypeid_t -> it.typeID;
 	StdObj_serialise -> it.serialize;
 	return 0;
+}
+int serialize_null(*OutputStream os, *StdObj it) {
+	return 0 - 1;
 }

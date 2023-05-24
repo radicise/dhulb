@@ -1,0 +1,13 @@
+#import "StdObj.dhulb"
+structure ObjComparable extends StdObj {
+	addr$int(*ObjComparable, *ObjComparable) compare;
+}
+int Objcmp(*ObjComparable that, *ObjComparable it) {
+	if !(that.typeID@ == it.typeID@) {
+		if (it.typeID < that.typeID) {
+			return 0 - 1;
+		}
+		return 1;
+	}
+	return it.compare@(that, it);
+}
