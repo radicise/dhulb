@@ -5,11 +5,12 @@ structure ObjStr extends ObjComparable {
 	*u8 str;
 }
 int ObjStr_compare(*ObjComparable that, *ObjComparable it) {
-	return strcmp(it.str@, that.str@);
+	return strcmp((it as *ObjStr).str@, (that as *ObjStr).str@);
 }
 int ObjStr_init(*u8 str, *ObjStr it) {
-	$$OBJSTR_ID$$ to u64 -> it.typeID;
+	$$OBJSTR_ID$$ as stdobjtypeid_t -> it.typeID;
 	ObjStr_compare -> it.compare;
 	str -> it.str;
 	serialize_null -> it.serialize;
+	return 0;
 }

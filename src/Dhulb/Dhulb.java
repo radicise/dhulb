@@ -3256,6 +3256,7 @@ class Str extends Value {
 		assoc = new StrDecl(tex, symb);
 	}
 	FullType bring() throws InternalCompilerException {
+		assoc.compile();
 		if (type.type instanceof StructuredType) {
 			throw new InternalCompilerException("String backs as a structural type");
 		}
@@ -3270,7 +3271,7 @@ class Str extends Value {
 				Compiler.text.println("movq $" + symb + ",%rax");
 				return type;
 			default:
-			throw new InternalCompilerException("String backs as a non-addressable type");
+				throw new InternalCompilerException("String backs as a non-addressable type");
 		}
 	}
 	static Str from() throws CompilationException, InternalCompilerException, IOException {//starts reading from directly after the opening doublequote
@@ -4479,9 +4480,11 @@ class Expression extends Value {
 		}
 		en.finalised = true;
 		PrintStream pstemp = Compiler.text;
-		Compiler.text = Compiler.nowhere;
+		PrintStream rwdtemp = Compiler.rwdata;
+		Compiler.rwdata = Compiler.text = Compiler.nowhere;
 		en.type = en.bring();//TODO maybe un-bodge
 		Compiler.text = pstemp;
+		Compiler.rwdata = rwdtemp;
 		return en;
 	}
 	void add(Item i) throws InternalCompilerException {//Should not throw NumberFormatException
@@ -4605,7 +4608,6 @@ class Expression extends Value {
 			cont = false;
 			if (tg == '\"') {
 				ex.add(last = Str.from());
-				((Str) last).assoc.compile();
 				continue;
 			}
 			else if ((tg == ending) || (tg == ending2)) {
@@ -4614,9 +4616,11 @@ class Expression extends Value {
 				}
 				ex.finalised = true;
 				PrintStream pstemp = Compiler.text;
-				Compiler.text = Compiler.nowhere;
+				PrintStream rwdtemp = Compiler.rwdata;
+				Compiler.rwdata = Compiler.text = Compiler.nowhere;
 				ex.type = ex.bring();//TODO maybe un-bodge
 				Compiler.text = pstemp;
+				Compiler.rwdata = rwdtemp;
 				ex.auxEnding = tg != ending;
 				return ex;
 			}

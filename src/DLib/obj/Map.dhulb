@@ -27,7 +27,7 @@ int Map_find(*ObjComparable key, *Map it) {
 		goto Map_find__loop;
 	}
 	if (Objcmp(loc.key@, key) == 0) {
-		return (loc - it.entries@) to int / %[size MapEntry] to int;
+		return ((loc - it.entries@) to int) / (%[size MapEntry] to int / 8);
 	}
 	loc = loc[1];
 	goto Map_find__loop;
@@ -48,17 +48,17 @@ int Map_add(*ObjComparable key, addr val, *Map it) {
 	}
 	*MapEntry loc = it.entries@;
         addr lmax = loc[it.size@];
-        :Map_find__loop;
+        :Map_add__loop;
         if (loc == lmax) {
                 return 0 - 1;
         }
         if (loc.key@ == null) {
         	key -> loc.key;
 		val -> loc.val;
-		return (loc - it.entries@) to int / %[size MapEntry] to int;
+		return ((loc - it.entries@) to int) / (%[size MapEntry] to int / 8);
 	}
         loc = loc[1];
-        goto Map_find__loop;
+        goto Map_add__loop;
 }
 int Map_remove(*ObjComparable key, *Map it) {
 	int g = it.find@(key);

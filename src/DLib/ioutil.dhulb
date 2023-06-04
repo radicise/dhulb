@@ -81,7 +81,7 @@ int readLine(int fd, int fdo, *u8 dest, uint count) {
 			goto readLine__loop;
 		}
 	}
-	if (in == 0x0a) {
+	if ((in == 0x0a) | (in == 0x0d)) {
 		bwrite(fdo, in as u8);
 		0 as u8 -> (dest + mPos);
 		return 0;
@@ -126,7 +126,11 @@ int println(*u8 a) {
 	if (g < 0) {
 		return g;
 	}
-	int h = bwrite($$STDOUT_FILENO$$, 0x0a as u8);
+	int h = bwrite($$STDOUT_FILENO$$, 0x0d as u8);
+	if (h < 0) {
+		return h;
+	}
+	h = bwrite($$STDOUT_FILENO$$, 0x0a as u8);
 	if (h < 0) {
 		return h;
 	}
