@@ -3,7 +3,7 @@
  * Created on 2023-05-03
  *
  */
-struct VGAMode3Out {
+structure VGAMode3Out {
 	u16 seg,
 	u8 width,
 	u8 height,
@@ -16,4 +16,33 @@ struct VGAMode3Out {
 u16 fbprint_escapeHandler(*u8 text, uint remaining, *VGAMode3Out dev) {
 	/*`text' is the address after that of the escape character, `remaining' is the amount of characters available starting at `text'*/
 	return 0;
+}
+structure BIOSDisk {
+	u8 ID,
+	u16 cylinders,
+	u8 heads,
+	u8 sectors,
+	int sectorSize;
+}
+int BIOSDisk_readSector(u32 LBA, addr dest, *BIOSDisk source) {
+	if (LBA >= ((source.cylinders@ to u32) * (source.heads@ to u32) * (source.sectors@ to u32))) {
+		return 0 - 1;
+	}
+	return CHS_readData(dest, LBA / ((source.heads@ to u32) * (source.sectors@ to u32)), (LBA / (source.sectors@ to u32)) % (source.heads@ to u32), LBA % (source.sectors@ to u32), source.ID@, 1);
+}
+#import <io/block.dhulb>
+structure BIOSDiskBlockStorage extends BlockStorage {
+	*BIOSDisk disk;
+}
+int BIOSDiskBlockStorage_read(addr a, u32 b, *BIOSDiskBlockStorage it) {
+	return BIOSDisk_readSector(b, a, it.disk@);
+}
+int BIOSDiskBlockStorage_write(addr a, u32 b, *BIOSDiskBlockStorage it) {
+	return 0 - 1;
+}
+BIOSDiskBlockStorage_init(*BIOSDisk disk, *BIOSDiskBlockStorage it) {
+	disk.sectorSize@ -> it.blockSize;
+	BIOSDiskBlockStorage -> it.read;
+	BIOSDiskBlockStorage -> it.write;
+	disk -> it.disk;
 }

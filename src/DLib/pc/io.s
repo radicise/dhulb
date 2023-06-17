@@ -260,6 +260,7 @@ movb 10(%bp),%dh
 xorb %cl,%cl
 movb 9(%bp),%ch
 shrw $2,%cx
+orb $0x3f,12(%bp)
 orb 12(%bp),%cl
 movb 8(%bp),%ch
 movw 6(%bp),%bx
@@ -267,5 +268,19 @@ int $0x13
 xorb %ah,%ah
 setnc %al
 decw %ax
+popw %bp
+retw
+CHS_readData:/*dhulbDoc-v301:function;s16 CHS_readData(a16, u16, u8, u8, u8, u8) call16;*/
+pushw %bp
+movw %sp,%bp
+pushw 14(%bp)
+pushw 12(%bp)
+pushw 10(%bp)
+pushw 8(%bp)
+pushw 6(%bp)
+pushw 4(%bp)
+pushw %ds
+callw CHS_read
+movw %bp,%sp
 popw %bp
 retw

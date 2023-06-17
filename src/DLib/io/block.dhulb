@@ -1,0 +1,5 @@
+structure BlockStorage {
+	int blockSize,
+	addr$int(addr, u32, *BlockStorage) read,
+	addr$int(addr, u32, *BlockStorage) write;
+}	

@@ -67,6 +67,21 @@ class Dhulb {
 		}
 	}
 }
+class NOStream extends OutputStream {
+    NOStream() {
+            super();
+    }
+    public void close() {
+    }
+    public void flush() {
+    }
+    public void write(byte[] bs) {
+    }
+    public void write(byte[] bs, int i, int j) {
+    }
+    public void write(int i) throws IOException {
+    }
+}
 class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names to be implied so that they can be accessed using the syntax which allows global variables with illegal names as well as global function with illegal names to be accessed, which has not yet been implemented), "linkable" (like globl), "assert" (change stack variable's full type to any full type (different than just casting, since the amount of data read can change based on the size of the type (this is necessary for stack variables but not for global variables since global variables can just referenced and then the pointing clause or dereferencing method of that reference changed, while doing that for stack variables would produce a stack segment-relative address whether the LEA instruction is used or the base pointer offset for the stack variable is used and this is not always good, since it would not work when the base of the data segment is not the same as the base of the stack segment or when the data segment's limit does not encompass the entirety of the data, given that addresses are specified to be logical address offset values for the data segment, though this does not happen with many modern user-space program loaders))) (or some other names like those), "require"
 	public static PrintStream nowhere;//Never be modified after initial setting
 	public static PrintStream prologue;
@@ -113,7 +128,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		buildTime = System.currentTimeMillis() / 1000L;
 		try {//TODO implement bulk memory movement syntax
 			try {//TODO create a way for an address to be gotten from a named global function
-				nowhere = new PrintStream(new NullOutputStream());
+				nowhere = new PrintStream(new NOStream());
 				prologue = new PrintStream(new BufferedOutputStream(System.out, 0x01000000));
 				proback = prologue;
 				epilogue = new PrintStream(new BufferedOutputStream(System.out, 0x01000000));
@@ -1833,6 +1848,8 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 			Util.skipWhite();
 			if (nof) {
 				if (sr.equals("byref") || sr.equals("byval")) {
+					throw new CompilationException("Function declaration not allowed within a structure");
+					/*
 					st.finishFields();
 					iaf = true;
 					byref = sr.equals("byref");
@@ -1848,6 +1865,7 @@ class Structure implements Compilable {//TODO allow use of the structured byte b
 						throw new CompilationException("Unexpected operator: " + new String(new int[]{i}, 0, 1));
 					}
 					break;
+					*/
 				}
 			}
 			if (!(Util.legalIdent(sr))) {
@@ -3672,6 +3690,7 @@ class Operator extends Item {
 	static final Operator MSHL = new Operator(false, '(');//("<<|") Bit-wise zero-filling left shift
 	static String[] eops = new String[]{"add", "sub", "cmp", "and", "or", "xor"};
 	static String[] cond = new String[]{"z", "nz", "a", "ae", "b", "be", "z", "nz", "g", "ge", "l", "le"};
+	static boolean[] condz = new boolean[]{true, true, true, false, false, true, true, true, true, false, false, true};
 	static String[] rsh = new String[]{"shr", "sar"};
 	static final Operator CMP = new Operator(false, 'C');// Comparison, for internal use
 	final boolean unary;
@@ -3710,7 +3729,10 @@ class Operator extends Item {
 				throw new NotImplementedException();
 		}
 	}
-	FullType apply(FullType LHO, Value RHO) throws CompilationException, InternalCompilerException {//Binary; The LHO has already been brought
+	FullType apply(FullType LHO, Value RHO) throws CompilationException, InternalCompilerException {
+		return apply(LHO, RHO, 0);
+	}
+	FullType apply(FullType LHO, Value RHO, int condNum) throws CompilationException, InternalCompilerException {//Binary; The LHO has already been brought
 		if ((LHO.type instanceof StructuredType) || (RHO.type.type instanceof StructuredType)) {
 			throw new CompilationException("Usage of primitive operators with a structured type");
 		}
@@ -3744,7 +3766,41 @@ class Operator extends Item {
 							case (32):
 								switch (Compiler.mach) {
 									case (0):
-										throw new NotImplementedException();
+										Compiler.text.println("pushw %dx");
+										Compiler.text.println("pushw %ax");
+										RHO.bring();
+										Compiler.text.println("movw %ax,%cx");
+										Compiler.text.println("movw %dx,%bx");
+										Compiler.text.println("popw %ax");
+										Compiler.text.println("popw %dx");
+										Compiler.text.print(eops[fn]);
+										Compiler.text.println("w %cx,%ax");
+										if (fn == 0) {
+											Compiler.text.println("adcw %bx,%dx");
+										}
+										else if (fn == 1) {
+											Compiler.text.println("sbcw %bx,%dx");
+										}
+										else if (fn == 2) {
+											if (condz[condNum]) {
+												Compiler.text.println("setnz %cl");
+												Compiler.text.println("shlw $6,%cx");
+												Compiler.text.println("notw %cx");
+											}
+											Compiler.text.println("sbcw %bx,%dx");
+											if (condz[condNum]) {
+												Compiler.text.println("pushf");
+												Compiler.text.println("popw %bx");
+												Compiler.text.println("andw %cx,%bx");
+												Compiler.text.println("pushw %bx");
+												Compiler.text.println("popf");
+											}
+										}
+										else {
+											Compiler.text.print(eops[fn]);
+											Compiler.text.println("w %bx,%dx");
+										}
+										break;
 									case (1):
 										Compiler.text.println("pushl %eax");//TODO prevent the need for this move by bring()-ing directly to %bx and preserving %ax (unless it's significantly slower than using the accumulator %ax or it's impossible not to use %ax), in which cases the called function might warn this function that it would be left in %ax)
 										RHO.bring();
@@ -3752,31 +3808,32 @@ class Operator extends Item {
 										Compiler.text.println("popl %eax");
 										Compiler.text.print(eops[fn]);
 										Compiler.text.println("l %ebx,%eax");//TODO perform to %bx and then notify the caller that it was left in %bx, unless it's significantly slower than using the accumulator
-										if ((LHO.type == Type.a32) || (RHtyp.type == Type.a32)) {
-											if (LHO.type == RHtyp.type) {
-												return FullType.a32;
-											}
-											if ((LHO.gives == null) != (LHO.runsWith == null)) {
-												return LHO;
-											}
-											if ((RHtyp.gives == null) != (RHtyp.runsWith == null)) {
-												return RHtyp;
-											}
-											return FullType.a32;
-										}
-										else if ((LHO.type == Type.s32) || (RHtyp.type == Type.s32)) {
-											return FullType.s32;
-										}
-										else if ((LHO.type == Type.u32) && (RHtyp.type == Type.u32)) {
-											return FullType.u32;
-										}
-										else {
-											throw new InternalCompilerException("Resultant type of operation could not be resolved");
-										}
+										break;
 									case (2):
 										throw new NotImplementedException();
 									default:
 										throw new InternalCompilerException("Unidentifiable target");
+								}
+								if ((LHO.type == Type.a32) || (RHtyp.type == Type.a32)) {
+									if (LHO.type == RHtyp.type) {
+										return FullType.a32;
+									}
+									if ((LHO.gives == null) != (LHO.runsWith == null)) {
+										return LHO;
+									}
+									if ((RHtyp.gives == null) != (RHtyp.runsWith == null)) {
+										return RHtyp;
+									}
+									return FullType.a32;
+								}
+								else if ((LHO.type == Type.s32) || (RHtyp.type == Type.s32)) {
+									return FullType.s32;
+								}
+								else if ((LHO.type == Type.u32) && (RHtyp.type == Type.u32)) {
+									return FullType.u32;
+								}
+								else {
+									throw new InternalCompilerException("Resultant type of operation could not be resolved");
 								}
 							case (16):
 								throw new NotImplementedException();
@@ -3957,6 +4014,35 @@ class Operator extends Item {
 						}
 					case (32):
 						if (Compiler.mach < 1) {
+							LHO.type.pushMain();
+							RHO.bring();
+							if (LHO.type.signed()) {
+								RHO.type.cast(FullType.s32);
+							}
+							else {
+								RHO.type.cast(FullType.u32);
+							}
+							if (fn == 0) {
+								Compiler.text.println("pushw %dx");
+								Compiler.text.println("pushw %ax");
+								Compiler.text.println("movw %sp,%bx");
+								Compiler.text.println("movw 4(%bx),%dx");
+								Compiler.text.println("mulw %dx");
+								Compiler.text.println("pushw %ax");
+								Compiler.text.println("movw %dx,%cx");
+								Compiler.text.println("movw 6(%bx),%dx");
+								Compiler.text.println("movw (%bx),%ax");
+								Compiler.text.println("mulw %dx");
+								Compiler.text.println("addw %ax,%cx");
+								Compiler.text.println("movw 4(%bx),%dx");
+								Compiler.text.println("movw 2(%bx),%ax");
+								Compiler.text.println("mulw %dx");
+								Compiler.text.println("addw %ax,%cx");
+								Compiler.text.println("movw %cx,%dx");
+								Compiler.text.println("popw %ax");
+								Compiler.text.println("addw $0x08,%sp");
+								return LHO;
+							}
 							throw new NotImplementedException();
 						}
 						LHO.type.pushMain();
