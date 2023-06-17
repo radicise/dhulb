@@ -51,4 +51,3 @@ a32 malloc (u32 size) {
 s32 free (a32 pointer) {
 	return dealloc(pointer-4, ((pointer-4) as a32*u32)@);
 }
-#utilise "compat.s" docscan

@@ -5,8 +5,8 @@
 /*
  * Defines:
  * sint exit();
- * sint STDIN_FILENO;
- * sint STDOUT_FILENO;
+ * STDIN_FILENO;
+ * STDOUT_FILENO;
  * sint read(sint, addr, uint);
  * sint write(sint, addr, uint);
  * sint bread(sint);
