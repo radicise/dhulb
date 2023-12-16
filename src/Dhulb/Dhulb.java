@@ -36,7 +36,8 @@ class Dhulb {
 			+ "\tB\tDisables error viewing\n"
 			+ "\tG\tAutomatically makes declared global variables and functions global\n"
 			+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n"
-			+ "\tA\tCauses ARMv6 code to be generated instead of 80386 code; Usage of this fplag is illegal when Argument 0 is not \"32\"\n"
+			/* + "\tA\tCauses ARMv6 code to be generated instead of 80386 code; Usage of this flag is illegal when Argument 0 is not \"32\"\n" */
+			+ "\tw\tPrevents compilation warnings from being sent to the standard error stream\n"
 			+ "\n"
 			+ "\n"
 			+ "\n"
@@ -118,6 +119,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static boolean autoGlobals = false;
 	public static boolean oneText = false;
 	public static boolean ARM = false;// Mappings between 80386 registers and ARMv6 registers: %eax -> r4; %edx -> r5; %ecx -> r6; %ebx ->r7; %esp -> r13; %ebp -> r11
+	public static boolean silenceWarnings = false;
 	public static long buildTime = 0;
 	public static long ver_major = (numericVersion / 1000000L) % 100L;// do not make final
 	public static long ver_minor = (numericVersion / 10000L) % 100L;// do not make final
@@ -251,9 +253,13 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		if (argv[1].contains("T")) {
 			oneText = true;
 		}
-		if (argv[1].contains("A")) {
+		/*if (argv[1].contains("A")) {
 			ARM = true;
-		}//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
+		}*/
+		if (argv[1].contains("w")) {
+			silenceWarnings = true;
+		}
+		//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
 		if (oneText) {
 			Compiler.prologue.println(".text");
 		}
@@ -1192,7 +1198,9 @@ class Util {
 	}
 	static void warn(String s) {
 		Compiler.warns++;
-		System.err.println("Warning: " + s);
+		if (!Compiler.silenceWarnings) {
+			System.err.println("Warning: " + s);
+		}
 	}
 	static int read() throws InternalCompilerException, IOException {
 		if (Compiler.noViewErrors) {
