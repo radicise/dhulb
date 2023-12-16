@@ -14,8 +14,53 @@ set_video_mode:/*dhulbDoc-v200:function;s16 set_video_mode(u8) call16;*/
 	movb $0x01,%al
 	popw %bp
 	retw
+fbprint_inEscape:/*dhulbDoc-v301:globalvar;u8 fbprint_inEscape;*/
+.byte 0x00
+fbprint_escapeBuffer:/*dhulbDoc-v301:globalvar;u8 fbprint_escapeBuffer;*/
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+fbhms:/*dhulbDoc-v301:globalvar;fbprint_escapeHandlerState fbhms;*/
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
+.byte 0x00
 fbprint:/*dhulbDoc-v300:function;u16 fbprint(a16*u8, u16, a16*VGAMode3Out) call16;*/
 .globl fbprint
+	xorb %al,%al
+	orb fbprint_inEscape,%al
+	jnz fbprint_escHand
 	pushw %bp
 	movw %sp,%bp
 	pushw %si
@@ -47,6 +92,8 @@ fbprint:/*dhulbDoc-v300:function;u16 fbprint(a16*u8, u16, a16*VGAMode3Out) call1
 	shlw $1,%bp
 	xorb %dl,%dl
 	xorb $0x77,%es:1(%di)#TODO make optional
+	testw %cx,%cx
+	jz fbprint__end
 	fbprint__read_char:
 	lodsb
 	/*
@@ -260,7 +307,7 @@ movb 10(%bp),%dh
 xorb %cl,%cl
 movb 9(%bp),%ch
 shrw $2,%cx
-orb $0x3f,12(%bp)
+andb $0x3f,12(%bp)
 orb 12(%bp),%cl
 movb 8(%bp),%ch
 movw 6(%bp),%bx

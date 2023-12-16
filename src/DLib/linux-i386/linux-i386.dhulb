@@ -1,0 +1,10 @@
+#utilise "linux-i386.s"
+#define LINUX__NR_exit 1
+/*
+ *  
+ * 
+ */
+
+
+
+

@@ -28,7 +28,7 @@ class Dhulb {
 			+ "Argument description:\n"
 			+ "\n"
 			+ "\n"
-			+ "Argument 0: The instruction set used; \"16\" utilises that of the 8086 and generates code for it, \"32\" does the same for that of 80386 and and generates code for it, and \"64\" does the same for AMD64\n"
+			+ "Argument 0: The instruction set used; \"16\" utilises that of the 8086 and generates code for it, \"32\" does the same for that of 80386 (or ARMv6 rather, if specified) and and generates code for it, and \"64\" does the same for AMD64\n"
 			+ "\n"
 			+ "Argument 1: Each optional character used represents a flag being set. Usage is as follows:\n"
 			+ "\tt\tPrints the compiler's stack trace upon compilation errors\n"
@@ -36,6 +36,7 @@ class Dhulb {
 			+ "\tB\tDisables error viewing\n"
 			+ "\tG\tAutomatically makes declared global variables and functions global\n"
 			+ "\tT\tCauses what are usually the data and text sections to instead have their contents be in one text section\n"
+			+ "\tA\tCauses ARMv6 code to be generated instead of 80386 code; Usage of this fplag is illegal when Argument 0 is not \"32\"\n"
 			+ "\n"
 			+ "\n"
 			+ "\n"
@@ -93,7 +94,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static PrintStream rwdatback;
 	public static PrintStream texback;
 	public static PushbackInputStream in = new PushbackInputStream(System.in, 64);//Do not `unread' too much
-	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode; 2: AMD64 64-bit mode
+	public static int mach = 0;//0: 8086; 1: 80386 32-bit mode / ARMv6; 2: AMD64 64-bit mode
 	public static final long FALSI = 0;
 	public static final long VERIF = 1;
 	public static boolean typeNicksApplicable = false;
@@ -116,6 +117,7 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 	public static boolean noViewErrors = false;
 	public static boolean autoGlobals = false;
 	public static boolean oneText = false;
+	public static boolean ARM = false;// Mappings between 80386 registers and ARMv6 registers: %eax -> r4; %edx -> r5; %ecx -> r6; %ebx ->r7; %esp -> r13; %ebp -> r11
 	public static long buildTime = 0;
 	public static long ver_major = (numericVersion / 1000000L) % 100L;// do not make final
 	public static long ver_minor = (numericVersion / 10000L) % 100L;// do not make final
@@ -248,6 +250,9 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 		}
 		if (argv[1].contains("T")) {
 			oneText = true;
+		}
+		if (argv[1].contains("A")) {
+			ARM = true;
 		}//TODO flag for using .err # "text", using .error "text" instead of .err # text, putting warnings in comments with whitespace before the comments on the same line by themselves, and using .warning "text"
 		if (oneText) {
 			Compiler.prologue.println(".text");
@@ -273,6 +278,10 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			def754 = Type.f32;
 			defAdr = Type.a16;
 			defOff = Type.s16;
+			if (ARM) {
+				System.err.print(Dhulb.invocation);
+				System.exit(12);
+			}
 		}
 		else if (madec == 32) {
 			Compiler.text.println(".code32");
@@ -293,6 +302,10 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 			def754 = Type.f64;
 			defAdr = Type.a64;
 			defOff = Type.s64;
+			if (ARM) {
+				System.err.print(Dhulb.invocation);
+				System.exit(11);
+			}
 		}
 		else {
 			System.err.print(Dhulb.invocation);
@@ -607,7 +620,12 @@ class Compiler {//TODO keywords: "imply" (like extern, also allows illegal names
 							case (16):
 								throw new NotImplementedException();
 							case (32):
-								Compiler.text.println("jmpl *%eax");
+								if (Compiler.ARM) {
+									Compiler.text.println("BX R4");
+								}
+								else {
+									Compiler.text.println("jmpl *%eax");
+								}
 								break;
 							case (64):
 								throw new NotImplementedException();
@@ -2888,8 +2906,9 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 			typ = vals[i].bring();
 			switch (typ.type.size()) {
 				case (8):
-					Compiler.text.println("subw $4,%esp");
-					Compiler.text.println("movzbl %al,(%esp)");
+					Compiler.text.println("subl $4,%esp");
+					Compiler.text.println("movzbl %al,%eax");
+					Compiler.text.println("movl %eax,(%esp)");
 					break;
 				case (64):
 					Compiler.text.println("pushl %edx");
@@ -2897,7 +2916,7 @@ class Call extends Value {//TODO make inter-address size calls have the caller s
 					Compiler.text.println("pushl %eax");
 					break;
 				case (16):
-					Compiler.text.println("subw $4,%sp");
+					Compiler.text.println("subl $4,%esp");
 					Compiler.text.println("movzwl %ax,(%esp)");
 					break;
 				default:
@@ -3691,7 +3710,7 @@ class Operator extends Item {
 	static String[] eops = new String[]{"add", "sub", "cmp", "and", "or", "xor"};
 	static String[] cond = new String[]{"z", "nz", "a", "ae", "b", "be", "z", "nz", "g", "ge", "l", "le"};
 	static boolean[] condz = new boolean[]{true, true, true, false, false, true, true, true, true, false, false, true};
-	static String[] rsh = new String[]{"shr", "sar"};
+	static String[] rsh = new String[]{"shr", "sar", "shl", "sal"};
 	static final Operator CMP = new Operator(false, 'C');// Comparison, for internal use
 	final boolean unary;
 	final int id;
@@ -3741,7 +3760,7 @@ class Operator extends Item {
 		}
 		FullType RHtyp = RHO.type;
 		int fn = 0;
-			switch (id) {
+		switch (id) {
 			case ('^'):
 				fn++;
 			case ('|'):
@@ -4161,6 +4180,10 @@ class Operator extends Item {
 				Compiler.text.print(cond[fn]);
 				Compiler.text.println(" %al");
 				return FullType.u8;
+			case ('('):
+				fn++;
+			case ('['):
+				fn++;
 			case (')'):
 				fn++;
 			case (']'):
@@ -4183,7 +4206,7 @@ class Operator extends Item {
 						}
 						else {//else since the NotImplementedException will be replaced with an implementation
 							Compiler.text.print(rsh[fn]);
-							Compiler.text.print("l %cl,%eax");
+							Compiler.text.println("l %cl,%eax");
 						}
 						break;
 					case (64):
@@ -5002,6 +5025,18 @@ class Expression extends Value {
 								case ('<'):
 									if ((i = Util.read()) == '=') {
 										ex.add(last = Operator.LTEQ);
+									}
+									else if (i == '<') {
+										if ((i = Util.read()) == '<') {
+											ex.add(last = Operator.ROL);
+										}
+										else if (i == '|') {
+											ex.add(last = Operator.MSHL);
+										}
+										else {
+											Util.unread(i);
+											ex.add(last = Operator.SHL);
+										}
 									}
 									else {
 										Util.unread(i);

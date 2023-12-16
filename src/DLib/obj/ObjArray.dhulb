@@ -1,0 +1,14 @@
+#import "StdObj.dhulb"
+/*
+ * src/DLib/arrays.dhulb
+ * Revision of "stdarrays.dhulb" to conform to dhulb
+ * File created 2023-10-20 by root
+ */
+structure Array extends StdObj {
+	addr*addr*Obj address;
+	uint length;
+	uint itemSize
+}
+int Array_init(addr buf, uint size) {
+	
+}

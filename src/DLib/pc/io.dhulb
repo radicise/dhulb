@@ -11,11 +11,128 @@ structure VGAMode3Out {
 	u8 y,
 	u8 format;
 }
-/*text frame buffer based on VGA mode 4, buffer must be sixteenbyte-aligned (starts at the beginning of the real-mode segment held by `seg')*/
+/*text frame buffer based on VGA mode 3, buffer must be sixteenbyte-aligned (starts at the beginning of the real-mode segment held by `seg')*/
+structure fbprint_escapeHandlerState {
+	u8 inEsc,
+	*u8 ref,
+	uint remaining,
+	uint bufOff,
+	*u8 text;
+}
 #utilise "io.s" docscan
+#import <util.dhulb>
+int fbprint_mvX(int mvmt, *VGAMode3Out dev) {
+	mvmt = mvmt + (dev.x@ to int);
+	if (mvmt < 0) {
+		0 as u8 -> (dev.x);
+	}
+	else (mvmt > (dev.width@ as int)) {
+		(dev.width@ - 1) to u8 -> (dev.x);
+	}
+	else {
+		mvmt to u8 -> (dev.x);
+	}
+	return 0;
+}
+int fbprint_mvY(int mvmt, *VGAMode3Out dev) {
+	mvmt = mvmt + (dev.y@ to int);
+	if (mvmt < 0) {
+		0 as u8 -> (dev.y);
+	}
+	else (mvmt > (dev.height@ to int)) {
+		(dev.width@ - 1) to u8 -> (dev.y);
+	}
+	else {
+		mvmt to u8 -> (dev.y);
+	}
+	return 0;
+}
+int fbRead(*u8 inEsc, **u8 text, *u8 ref, uint remaining, *uint bufOff) {
+	if (inEsc@) {
+		u8 p = (fbprint_escapeBuffer$ + bufOff@)@;
+		(bufOff@ + 1) -> bufOff;
+		if ((fbprint_escapeBuffer$ + bufOff@)@ == 0x00) {
+			0 as u8 -> inEsc;
+		}
+		return p;
+	}
+	0 as u8 -> fbprint_escapeBuffer$;
+	if ((ref + remaining) == text@) {
+		if ((strlen(fbprint_escapeBuffer$) + remaining) <= 31) {
+			memcpy(fbprint_escapeBuffer$ + strlen(fbprint_escapeBuffer$), ref, remaining);
+			1 as u8 -> inEsc;
+		}
+		return 0 - 1;
+	}
+	u8 g = text@@;
+	text@ + 1 -> text;
+	return g;
+}
+int fbReadit() {
+	return fbRead(fbhms$.inEsc, fbhms$.text, fbhms$.ref@, fbhms$.remaining@, fbhms$.bufOff);
+}
 u16 fbprint_escapeHandler(*u8 text, uint remaining, *VGAMode3Out dev) {
 	/*`text' is the address after that of the escape character, `remaining' is the amount of characters available starting at `text'*/
-	return 0;
+	/*amount used MUST be deterministic on an input-by-input basis*/
+	text -> (fbhms$.ref);
+	text -> (fbhms$.text);
+	remaining -> (fbhms$.remaining);
+	0 -> (fbhms$.bufOff);
+	fbprint_inEscape -> (fbhms$.inEsc);
+	fbprint_inEscape = 0;
+	int g = fbReadit();
+	if (g < 0) {
+		return remaining;
+	}
+	if (g == 0x5b) {
+		g = fbReadit();
+		if (g < 0) {
+			return remaining;
+		}
+		if (g == 0x41) {
+			fbprint_mvY(0 - 1);
+		}
+		else (g == 0x42) {
+			fbprint_mvY(1);
+		}
+		else (g == 0x44) {
+			fbprint_mvX(0 - 1);
+		}
+		else (g == 0x43) {
+			fbprint_mvX(1);
+		}
+		else {
+			uint count = 0;
+			:fbprint_escapeHandler__loop;
+			if ((g < 0x30) | (g > 0x39)) {
+				if (g == 0x41) {
+					fbprint_mvY(0 - count);
+				}
+				else (g == 0x42) {
+					fbprint_mvY(count);
+				}
+				else (g == 0x44) {
+					fbprint_mvX(0 - count);
+				}
+				else (g == 0x43) {
+					fbprint_mvX(count);
+				}
+				return (fbhms$.text@) - (fbhms$.ref@);
+			}
+			count = (count * 10) + (g - 0x30);
+			g = fbReadit();
+			if (g < 0) {
+				return remaining;
+			}
+			goto fbprint_escapeHandler__loop;
+		}
+	}
+	fbprint_inEscape = fbhms$.inEsc@;
+	return (fbhms$.text@) - (fbhms$.ref@);
+}
+u16 fbprint_escHand(*u8 text, uint remaining, *VGAMode3Out dev) {
+	uint use = fbprint_escapeHandler(text, remaining, dev);
+	use = use + fbprint(text + use, remaining - use, dev);
 }
 structure BIOSDisk {
 	u8 ID,
@@ -24,6 +141,7 @@ structure BIOSDisk {
 	u8 sectors,
 	int sectorSize;
 }
+/*
 int BIOSDisk_readSector(u32 LBA, addr dest, *BIOSDisk source) {
 	if (LBA >= ((source.cylinders@ to u32) * (source.heads@ to u32) * (source.sectors@ to u32))) {
 		return 0 - 1;
@@ -46,3 +164,4 @@ BIOSDiskBlockStorage_init(*BIOSDisk disk, *BIOSDiskBlockStorage it) {
 	BIOSDiskBlockStorage -> it.write;
 	disk -> it.disk;
 }
+*/
