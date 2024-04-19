@@ -22,7 +22,7 @@ import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 class Dhulb {
 	public static final String invocation = "Invocation:\n"
-			+ "dhulbc 16|32|64 -[t][N][B][G][T]\n"
+			+ "dhulbc 16|32|64 -[t][N][B][G][T][w]\n"
 			+ "\n"
 			+ "\n"
 			+ "Argument description:\n"
